@@ -50,6 +50,9 @@ require_once TCM_PATH . 'includes/class-tcm-import.php';
 require_once TCM_PATH . 'includes/class-tcm-form-ingest.php';
 require_once TCM_PATH . 'includes/class-tcm-roles.php';
 require_once TCM_PATH . 'includes/class-tcm-settings.php';
+require_once TCM_PATH . 'includes/class-tcm-access.php';
+require_once TCM_PATH . 'includes/class-tcm-frontoffice.php';
+require_once TCM_PATH . 'includes/class-tcm-dashboard.php';
 require_once TCM_PATH . 'includes/class-tcm-plugin.php';
 
 // -----------------------------------------------------------------------------

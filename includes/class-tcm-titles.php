@@ -15,6 +15,28 @@ class TCM_Titles {
 	public function hooks(): void {
 		// acf/save_post avec priorité > 10 : les champs sont déjà enregistrés.
 		add_action( 'acf/save_post', array( $this, 'maybe_set_title' ), 20 );
+		add_action( 'init', array( $this, 'maybe_reindex_titles' ) );
+	}
+
+	public function maybe_reindex_titles(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( ! isset( $_GET['tcm_reindex_titles'] ) ) {
+			return;
+		}
+		$posts = get_posts( array(
+			'post_type'      => array( TCM_CPT_PERSONNE, TCM_CPT_ADHERENT, TCM_CPT_REGLEMENT, TCM_CPT_COMMANDE, TCM_CPT_CRENEAU, TCM_CPT_INSCRIPTION ),
+			'post_status'    => 'any',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+		) );
+		foreach ( $posts as $post_id ) {
+			$this->maybe_set_title( $post_id );
+		}
+		wp_safe_redirect( remove_query_arg( 'tcm_reindex_titles' ) );
+		exit;
 	}
 
 	public function maybe_set_title( $post_id ): void {
