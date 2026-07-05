@@ -16,6 +16,11 @@ class TCM_Dashboard {
 	public function hooks(): void {
 		add_shortcode( 'tcm_fiche', array( $this, 'sc_fiche' ) );
 		add_shortcode( 'tcm_recap', array( $this, 'sc_recap' ) );
+		add_filter( 'acf/fields/post_object/result/name=adherent', function( $title, $post ) {
+			$pid = $post instanceof WP_Post ? (int) get_field( 'personne', $post->ID ) : 0;
+			$nom = $pid ? trim( (string) get_field( 'nom', $pid ) . ' ' . (string) get_field( 'prenom', $pid ) ) : $title;
+			return $nom . ' — ' . get_field( 'saison', $post->ID );
+		}, 10, 2 );
 
 		foreach ( array( 'field_tcm_reg_adherent', 'field_tcm_cmd_adherent' ) as $key ) {
 			add_filter( "acf/load_value/key={$key}", array( $this, 'prefill_adherent' ), 10, 3 );

@@ -96,6 +96,7 @@ class TCM_Frontoffice {
 			'post_title'         => false,
 			'post_content'       => false,
 			'uploader'           => 'basic',
+			'honeypot'           => false,
 			'submit_value'       => $new ? 'Créer' : 'Enregistrer',
 			'updated_message'    => $ent['label'] . ' enregistré.',
 			'html_submit_button' => '<input type="submit" class="button button-primary" value="%s" />',

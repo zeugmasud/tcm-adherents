@@ -72,7 +72,11 @@ class TCM_Taxonomies {
 			'fields'         => 'ids',
 		) );
 		foreach ( $ids as $id ) {
-			self::sync_adherent( (int) $id );
+			$id = (int) $id;
+			self::sync_adherent( $id );
+			if ( class_exists( 'TCM_Titles' ) ) {
+				( new TCM_Titles() )->maybe_set_title( $id );
+			}
 		}
 		return count( $ids );
 	}

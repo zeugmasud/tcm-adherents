@@ -106,7 +106,7 @@ class TCM_ACF_Fields {
 					'post_type' => array( TCM_CPT_ADHERENT ), 'return_format' => 'id', 'required' => 1, 'ui' => 1 ),
 				array( 'key' => 'field_tcm_reg_montant', 'label' => 'Montant (€)', 'name' => 'montant', 'type' => 'number', 'step' => '0.01' ),
 				array( 'key' => 'field_tcm_reg_canal', 'label' => 'Canal', 'name' => 'canal', 'type' => 'select',
-					'choices' => array( 'helloasso' => 'HelloAsso (CB)', 'cheque' => 'Chèque', 'especes' => 'Espèces' ), 'required' => 1 ),
+					'choices' => array( 'cheque' => 'Chèque', 'especes' => 'Espèces', 'cb' => 'CB', 'helloasso' => 'HelloAsso' ), 'required' => 1 ),
 				array( 'key' => 'field_tcm_reg_date', 'label' => 'Date', 'name' => 'date_reglement', 'type' => 'date_picker',
 					'display_format' => 'd/m/Y', 'return_format' => 'Ymd' ),
 				array( 'key' => 'field_tcm_reg_ref', 'label' => 'Référence HelloAsso', 'name' => 'ref_helloasso', 'type' => 'text',
