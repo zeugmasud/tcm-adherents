@@ -1,0 +1,20 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+
+# Dépendances (si build futur)
+node_modules/
+vendor/
+
+# Logs / temporaires
+*.log
+*.tmp
+*.bak
+
+# Archives locales
+*.zip
