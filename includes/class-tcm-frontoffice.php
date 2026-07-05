@@ -33,6 +33,7 @@ class TCM_Frontoffice {
 	public function hooks(): void {
 		add_action( 'init', array( $this, 'ensure_role' ) );
 		add_filter( 'tcm_protected_slugs', array( $this, 'protect_pages' ) );
+		add_action( 'admin_post_tcm_new_child', array( $this, 'new_child' ) );
 
 		add_shortcode( 'tcm_form', array( $this, 'sc_form' ) );
 		add_shortcode( 'tcm_liste', array( $this, 'sc_liste' ) );
@@ -55,6 +56,24 @@ class TCM_Frontoffice {
 
 	public function protect_pages( array $slugs ): array {
 		return array_unique( array_merge( $slugs, $this->pages() ) );
+	}
+
+	public function new_child(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_new_child' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		$map = array( 'reglement' => TCM_CPT_REGLEMENT, 'commande' => TCM_CPT_COMMANDE );
+		$entity   = sanitize_key( $_GET['entity'] ?? '' );
+		$cpt      = $map[ $entity ] ?? '';
+		$adherent = (int) ( $_GET['adherent'] ?? 0 );
+		if ( ! $cpt || ! $adherent ) {
+			wp_die( 'Paramètres manquants.' );
+		}
+		$id = wp_insert_post( array( 'post_type' => $cpt, 'post_status' => 'publish', 'post_title' => ucfirst( $entity ) ) );
+		update_field( 'adherent', $adherent, $id );
+		$page = 'reglement' === $entity ? 'fiche-reglement' : 'fiche-commande';
+		wp_safe_redirect( add_query_arg( 'id', $id, get_permalink( get_page_by_path( $page ) ) ) );
+		exit;
 	}
 
 	// -------------------------------------------------------------------------

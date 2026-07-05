@@ -96,8 +96,8 @@ class TCM_Dashboard {
 
 		$edit_adh = esc_url( add_query_arg( 'id', $id, $this->page_url( 'fiche-adherent' ) ) );
 		$edit_per = esc_url( add_query_arg( 'id', $pid, $this->page_url( 'fiche-personne' ) ) );
-		$add_reg  = esc_url( add_query_arg( 'adherent', $id, $this->page_url( 'fiche-reglement' ) ) );
-		$add_cmd  = esc_url( add_query_arg( 'adherent', $id, $this->page_url( 'fiche-commande' ) ) );
+		$add_reg  = esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tcm_new_child&entity=reglement&adherent=' . $id ), 'tcm_new_child' ) );
+		$add_cmd  = esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tcm_new_child&entity=commande&adherent=' . $id ), 'tcm_new_child' ) );
 
 		ob_start();
 		echo '<div class="tcm-fiche">';
