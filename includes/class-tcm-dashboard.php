@@ -22,6 +22,19 @@ class TCM_Dashboard {
 			return $nom . ' — ' . get_field( 'saison', $post->ID );
 		}, 10, 2 );
 
+		add_action( 'acf/save_post', function( $post_id ) {
+			if ( ! is_numeric( $post_id ) ) {
+				return;
+			}
+			$post_id = (int) $post_id;
+			if ( ! in_array( get_post_type( $post_id ), array( TCM_CPT_REGLEMENT, TCM_CPT_COMMANDE ), true ) ) {
+				return;
+			}
+			if ( empty( get_field( 'adherent', $post_id ) ) && ! empty( $_GET['adherent'] ) ) {
+				update_field( 'adherent', (int) wp_unslash( $_GET['adherent'] ), $post_id );
+			}
+		}, 20 );
+
 		foreach ( array( 'field_tcm_reg_adherent', 'field_tcm_cmd_adherent' ) as $key ) {
 			add_filter( "acf/load_value/key={$key}", array( $this, 'prefill_adherent' ), 10, 3 );
 		}

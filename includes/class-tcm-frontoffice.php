@@ -64,8 +64,8 @@ class TCM_Frontoffice {
 		if ( ! function_exists( 'acf_form_head' ) || ! is_page() ) {
 			return;
 		}
-		$post = get_queried_object();
-		if ( $post instanceof WP_Post && has_shortcode( (string) $post->post_content, 'tcm_form' ) ) {
+		$slug = get_queried_object() ? get_queried_object()->post_name : '';
+		if ( in_array( $slug, array( 'fiche-adherent', 'fiche-reglement', 'fiche-commande', 'fiche-personne' ), true ) ) {
 			acf_form_head();
 		}
 	}
