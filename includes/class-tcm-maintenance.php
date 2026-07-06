@@ -65,7 +65,7 @@ class TCM_Maintenance {
 
 		// --- Import ADOC par upload CSV -----------------------------------
 		echo '<hr><h2>' . esc_html__( 'Import ADOC (email / téléphone) par fichier CSV', 'tcm-adherents' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Déposez l’export FFT « Détaillé » ou l’onglet adocDetail enregistré en CSV. Depuis Google Sheets : Fichier → Télécharger → CSV ; depuis Excel : Enregistrer sous → CSV. Les colonnes sont détectées automatiquement (Nom, Prénom, Email, Téléphone, idAdoc / identifiantMembre, Date de naissance). Complète les email/téléphones vides sans jamais écraser.', 'tcm-adherents' ) . '</p>';
+		echo '<p>' . esc_html__( 'Déposez l’export FFT « Détaillé » ou l’onglet adocDetail enregistré en CSV. Depuis Google Sheets : Fichier → Télécharger → CSV ; depuis Excel : Enregistrer sous → CSV. Les colonnes sont détectées automatiquement (Nom, Prénom, Email, Téléphone, idAdoc / identifiantMembre, Date de naissance). Complète les email/téléphones vides et écrit l’idAdoc manquant sur les adhérents (bouton « Fiche ADOC »), sans jamais écraser une valeur existante.', 'tcm-adherents' ) . '</p>';
 		echo '<form method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'tcm_adoc_import' );
 		echo '<input type="hidden" name="action" value="tcm_adoc_import">';
@@ -153,8 +153,8 @@ class TCM_Maintenance {
 
 		$rep = $this->run_backfill( $contacts );
 		$this->finish( sprintf(
-			'Backfill ADOC terminé : %d personnes appariées · %d email complétés · %d téléphones complétés.',
-			$rep['matched'], $rep['email'], $rep['tel']
+			'Backfill ADOC terminé : %d personnes appariées · %d email · %d téléphones · %d idAdoc écrits.',
+			$rep['matched'], $rep['email'], $rep['tel'], $rep['idadoc']
 		) );
 	}
 
@@ -182,30 +182,31 @@ class TCM_Maintenance {
 
 		$rep = $this->run_backfill( $contacts );
 		$this->finish( sprintf(
-			'Import ADOC : %d contacts lus · %d personnes appariées · %d email complétés · %d téléphones complétés.',
-			count( $contacts ), $rep['matched'], $rep['email'], $rep['tel']
+			'Import ADOC : %d contacts lus · %d personnes appariées · %d email · %d téléphones · %d idAdoc écrits.',
+			count( $contacts ), $rep['matched'], $rep['email'], $rep['tel'], $rep['idadoc']
 		) );
 	}
 
 	/**
-	 * Cœur du backfill : complète email/tél vides des Personnes depuis une liste
-	 * de contacts (idAdoc, nom, prenom, date_naissance, email, telephone).
-	 * N'écrase jamais une valeur existante.
+	 * Cœur du backfill : complète email/tél vides des Personnes et écrit l'idAdoc
+	 * manquant sur leurs Adhérents, depuis une liste de contacts (idAdoc, nom,
+	 * prenom, date_naissance, email, telephone). N'écrase jamais une valeur existante.
 	 *
-	 * @return array{matched:int,email:int,tel:int}
+	 * @return array{matched:int,email:int,tel:int,idadoc:int}
 	 */
 	private function run_backfill( array $contacts ): array {
 		$by_id  = array();
 		$by_key = array();
 		foreach ( $contacts as $c ) {
-			$email = isset( $c['email'] ) ? sanitize_email( (string) $c['email'] ) : '';
-			$tel   = isset( $c['telephone'] ) ? TCM_Normalize::phone( (string) $c['telephone'] ) : '';
-			if ( '' === $email && '' === $tel ) {
+			$email  = isset( $c['email'] ) ? sanitize_email( (string) $c['email'] ) : '';
+			$tel    = isset( $c['telephone'] ) ? TCM_Normalize::phone( (string) $c['telephone'] ) : '';
+			$idadoc = ! empty( $c['idAdoc'] ) ? preg_replace( '/\D/', '', (string) $c['idAdoc'] ) : '';
+			if ( '' === $email && '' === $tel && '' === $idadoc ) {
 				continue;
 			}
-			$entry = array( 'email' => $email, 'telephone' => $tel );
-			if ( ! empty( $c['idAdoc'] ) ) {
-				$by_id[ (string) $c['idAdoc'] ] = $entry;
+			$entry = array( 'email' => $email, 'telephone' => $tel, 'idadoc' => $idadoc );
+			if ( '' !== $idadoc ) {
+				$by_id[ $idadoc ] = $entry;
 			}
 			if ( ! empty( $c['nom'] ) && ! empty( $c['prenom'] ) ) {
 				$key = TCM_Dedup::make_key( (string) $c['nom'], (string) $c['prenom'], (string) ( $c['date_naissance'] ?? '' ) );
@@ -215,22 +216,22 @@ class TCM_Maintenance {
 
 		$filled_email = 0;
 		$filled_tel   = 0;
-		$matched      = 0;
+		$filled_idadoc = 0;
+		$matched       = 0;
 
 		$persons = get_posts( array( 'post_type' => TCM_CPT_PERSONNE, 'posts_per_page' => -1, 'post_status' => 'any', 'fields' => 'ids', 'no_found_rows' => true ) );
 		foreach ( $persons as $pid ) {
-			$cur_email = (string) get_field( 'email', $pid );
-			$cur_tel   = (string) get_field( 'telephone', $pid );
-			if ( '' !== $cur_email && '' !== $cur_tel ) {
-				continue;
-			}
-
-			$entry = $this->contact_for_person( $pid, $by_id, $by_key );
+			// Appariement par clé Nom+Prénom+DOB (les adhérents n'ont pas encore
+			// forcément d'idAdoc, donc on ne peut pas se fier au by_id ici).
+			$key   = TCM_Dedup::make_key( (string) get_field( 'nom', $pid ), (string) get_field( 'prenom', $pid ), (string) get_field( 'date_naissance', $pid ) );
+			$entry = $by_key[ $key ] ?? $this->contact_for_person( $pid, $by_id, $by_key );
 			if ( ! $entry ) {
 				continue;
 			}
 			$matched++;
 
+			$cur_email = (string) get_field( 'email', $pid );
+			$cur_tel   = (string) get_field( 'telephone', $pid );
 			if ( '' === $cur_email && ! empty( $entry['email'] ) ) {
 				update_field( 'email', $entry['email'], $pid );
 				$filled_email++;
@@ -239,9 +240,20 @@ class TCM_Maintenance {
 				update_field( 'telephone', $entry['telephone'], $pid );
 				$filled_tel++;
 			}
+
+			// idAdoc : écrit sur chaque Adhérent de la personne qui n'en a pas.
+			if ( ! empty( $entry['idadoc'] ) ) {
+				$adh = get_posts( array( 'post_type' => TCM_CPT_ADHERENT, 'posts_per_page' => -1, 'post_status' => 'any', 'fields' => 'ids', 'meta_key' => 'personne', 'meta_value' => $pid, 'no_found_rows' => true ) );
+				foreach ( $adh as $aid ) {
+					if ( '' === (string) get_field( 'id_adoc', $aid ) ) {
+						update_field( 'id_adoc', $entry['idadoc'], $aid );
+						$filled_idadoc++;
+					}
+				}
+			}
 		}
 
-		return array( 'matched' => $matched, 'email' => $filled_email, 'tel' => $filled_tel );
+		return array( 'matched' => $matched, 'email' => $filled_email, 'tel' => $filled_tel, 'idadoc' => $filled_idadoc );
 	}
 
 	/**
