@@ -33,6 +33,10 @@
 /* --------------------------------------------------------------------------
    Shell / app-shell
    -------------------------------------------------------------------------- */
+/* Annule le décalage de 32px laissé par la barre d'admin (masquée sur l'app-shell).
+   Scopé à l'app-shell pour ne pas toucher la barre admin du site public. */
+html:has( body.tcm-crm-shell ) { margin-top: 0 !important; }
+
 body.tcm-crm-shell {
 	margin: 0;
 	background: var(--tcm-bg);
@@ -95,6 +99,20 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 }
 .tcm-nav-item.is-active .tcm-nav-ico { opacity: .9; }
 
+/* Pied de barre latérale : Récapitulatif + compte (remplace la barre admin WP) */
+.tcm-sidebar {
+	display: flex; flex-direction: column;
+	position: sticky; top: 0; align-self: flex-start;
+	height: 100vh; overflow-y: auto;
+}
+.tcm-sidebar-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.tcm-burger { display: none; }
+.tcm-sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--tcm-border-2); }
+.tcm-user { padding: 10px 14px 2px; }
+.tcm-user-name { display: block; font-weight: 600; font-size: 13px; color: var(--tcm-text); margin-bottom: 6px; }
+.tcm-user-link { display: block; font-size: 13px; color: var(--tcm-muted); text-decoration: none; padding: 4px 0; }
+.tcm-user-link:hover { color: var(--tcm-accent); }
+
 /* App content -------------------------------------------------------------- */
 .tcm-app {
 	flex: 1 1 auto;
@@ -145,6 +163,16 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 .tcm-stats .tcm-stat:nth-child(4) strong { color: #6d54c8; }
 .tcm-stats .tcm-stat:nth-child(5) { background: #e6f6f5; }
 .tcm-stats .tcm-stat:nth-child(5) strong { color: #12938c; }
+
+/* Sélecteurs + variations du tableau de bord */
+.tcm-stats-bar { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.tcm-stats-bar label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tcm-muted); font-weight: 600; }
+.tcm-stats-bar select { padding: 8px 12px; border: 1px solid var(--tcm-border); border-radius: var(--tcm-radius-sm); background: #fff; font-size: 14px; font-family: var(--tcm-sans); }
+.tcm-delta { display: inline-block; margin-top: 6px; align-self: flex-start; font-size: 13px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+.tcm-delta-up { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-delta-down { background: #fde2e1; color: #b42318; }
+.tcm-delta-flat { background: #eef1f5; color: #475467; }
+.tcm-reinscrire { display: inline; margin: 0; }
 
 /* --------------------------------------------------------------------------
    Master-detail ([tcm_crm])
@@ -212,6 +240,12 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 	min-height: 200px;
 }
 .tcm-crm-detail > p { color: var(--tcm-muted); }
+
+/* Évite le débordement des colonnes de grille sur petits écrans
+   (sans min-width:0, un contenu large — barre d'onglets — force la colonne). */
+.tcm-crm-list, .tcm-crm-detail,
+.tcm-planning-list, .tcm-planning-detail { min-width: 0; }
+.tcm-coord li, .tcm-parents { overflow-wrap: anywhere; }
 
 /* --------------------------------------------------------------------------
    Fiche ([tcm_fiche])
@@ -299,6 +333,14 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 .tcm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tcm-table th, .tcm-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--tcm-border-2); }
 .tcm-table thead th { color: var(--tcm-muted); font-weight: 600; font-size: 13px; }
+.tcm-th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+.tcm-th-sort:hover { color: var(--tcm-text); }
+.tcm-th-sort.is-sorted-asc::after { content: ' ▲'; font-size: 9px; color: var(--tcm-accent); }
+.tcm-th-sort.is-sorted-desc::after { content: ' ▼'; font-size: 9px; color: var(--tcm-accent); }
+
+/* Tableaux larges : défilement horizontal sur petits écrans */
+.tcm-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tcm-recap-table th, .tcm-recap-table td { white-space: nowrap; }
 .tcm-table tfoot th { border-top: 2px solid var(--tcm-border); border-bottom: 0; }
 
 /* Notice (retour d'envoi d'attestation) */
@@ -306,6 +348,116 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 .tcm-notice-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
 .tcm-notice-err { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
 .tcm-facture-actions { white-space: nowrap; }
+
+/* --------------------------------------------------------------------------
+   CRUD inline (règlements / commandes) — lignes en cartes
+   -------------------------------------------------------------------------- */
+.tcm-rows { display: flex; flex-direction: column; gap: 8px; }
+.tcm-row {
+	display: flex; align-items: center; justify-content: space-between; gap: 14px;
+	padding: 12px 16px; border-radius: var(--tcm-radius-sm);
+	background: #f5f8fd; border: 1px solid #eaeef6;
+	transition: background .12s ease;
+}
+.tcm-row:hover { background: #eef3fb; }
+.tcm-row-main { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-width: 0; }
+.tcm-row-date, .tcm-row-montant, .tcm-row-libelle { font-weight: 600; color: var(--tcm-text); }
+.tcm-row-canal { color: var(--tcm-muted); }
+.tcm-row-actions { display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.tcm-row--total { background: none; border: 0; justify-content: flex-end; padding-right: 16px; }
+.tcm-row--edit { display: block; background: #fff; border: 1px solid var(--tcm-accent-bd); padding: 16px; }
+.tcm-chip { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #eef1f5; color: #475467; }
+.tcm-chip-valide { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-chip-en_attente { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
+
+.tcm-del-form { display: inline; margin: 0; }
+.tcm-app .tcm-danger {
+	color: #b42318 !important;
+	border-color: #f0c9c4 !important;
+	background: #fff !important;
+	text-transform: none !important; letter-spacing: normal !important;
+}
+.tcm-app .tcm-danger:hover { background: #fef3f2 !important; }
+
+.tcm-inline-form { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.tcm-inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--tcm-muted); font-weight: 600; }
+.tcm-inline-form input,
+.tcm-inline-form select {
+	padding: 8px 10px;
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius-sm);
+	background: #fff; font-size: 14px; font-family: var(--tcm-sans); color: var(--tcm-text);
+	min-width: 140px;
+}
+.tcm-inline-form input:focus,
+.tcm-inline-form select:focus { outline: none; border-color: var(--tcm-accent-bd); }
+.tcm-inline-actions { display: flex; gap: 8px; align-items: center; }
+.tcm-app .tcm-inline-form button,
+.tcm-app .tcm-row .button { text-transform: none !important; letter-spacing: normal !important; }
+
+.tcm-add-block { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--tcm-border); }
+.tcm-add-block h4 { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--tcm-text); }
+
+/* Teinte bleu (garçon) / rose (fille) dans la liste des adhérents */
+.tcm-crm-row.sexe-g { background: #eef4ff; }
+.tcm-crm-row.sexe-f { background: #fdeff5; }
+.tcm-crm-row.sexe-g:hover { background: #e4eeff; }
+.tcm-crm-row.sexe-f:hover { background: #fbe4ef; }
+.tcm-crm-row.is-active.sexe-g,
+.tcm-crm-row.is-active.sexe-f { background: var(--tcm-accent-bg); }
+
+/* --------------------------------------------------------------------------
+   Planning ([tcm_planning]) — créneaux groupés par jour + inscrits
+   -------------------------------------------------------------------------- */
+.tcm-planning { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+.tcm-planning-list {
+	background: var(--tcm-surface); border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius); box-shadow: var(--tcm-shadow); overflow: hidden;
+}
+.tcm-planning-list .tcm-crm-bar { border-bottom: 1px solid var(--tcm-border-2); }
+.tcm-day { padding: 0 12px 8px; }
+.tcm-day-title {
+	margin: 14px -12px 10px; padding: 8px 16px;
+	background: #2b3444; color: #fff;
+	font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+}
+.tcm-group { background: #f4f7fc; border-radius: var(--tcm-radius-sm); padding: 8px 10px 4px; margin-bottom: 10px; }
+.tcm-group-title { margin: 2px 4px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--tcm-muted); }
+.tcm-creneau-card {
+	display: flex; flex-direction: column; gap: 3px;
+	padding: 12px 14px; margin-bottom: 8px;
+	background: #fff;
+	border: 1px solid var(--tcm-border-2); border-radius: var(--tcm-radius-sm);
+	text-decoration: none; color: var(--tcm-text);
+	transition: border-color .12s ease, background .12s ease;
+}
+.tcm-creneau-card:hover { background: #f7f9fc; }
+.tcm-creneau-card.is-active { border-color: var(--tcm-accent-bd); background: var(--tcm-accent-bg); }
+.tcm-creneau-time { font-weight: 600; }
+.tcm-creneau-meta { color: var(--tcm-muted); font-size: 13px; }
+.tcm-creneau-fill { align-self: flex-start; margin-top: 3px; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+.tcm-fill-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-fill-warn { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
+.tcm-fill-full { background: #fde2e1; color: #b42318; }
+.tcm-planning-detail {
+	background: var(--tcm-surface); border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius); box-shadow: var(--tcm-shadow);
+	padding: 24px 26px; min-height: 200px;
+}
+.tcm-planning-detail > p { color: var(--tcm-muted); }
+.tcm-creneau-info { color: var(--tcm-muted); margin: -4px 0 16px; }
+.tcm-chip-confirme { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-chip-attente { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
+.tcm-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.tcm-detail-head h3 { margin: 0; }
+.tcm-app .tcm-link { color: var(--tcm-accent); text-decoration: none; }
+.tcm-app .tcm-link:hover { text-decoration: underline; }
+.tcm-add-creneau { display: inline-block; margin: 6px 0 4px; }
+.tcm-muted { color: var(--tcm-muted); }
+@media (max-width: 1100px) {
+	.tcm-planning { grid-template-columns: 1fr; }
+	.tcm-planning-detail { order: -1; }
+}
 
 /* Documents : tuiles */
 .tcm-docs {
@@ -366,6 +518,8 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 .tcm-app .button-primary { background: var(--tcm-accent); border-color: var(--tcm-accent); color: #fff; }
 .tcm-app .button-primary:hover { background: #1d4ed8; }
 .tcm-app .button-small { padding: 4px 10px; font-size: 13px; }
+.tcm-act { display: inline-flex; align-items: center; gap: 6px; }
+.tcm-act .tcm-act-ico { display: none; }
 
 /* --------------------------------------------------------------------------
    Formulaires d'édition ACF (fiche-adherent / personne / reglement / commande)
@@ -436,12 +590,18 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 @media (max-width: 1100px) {
 	.tcm-stats { grid-template-columns: repeat(2, 1fr); }
 	.tcm-crm { grid-template-columns: 1fr; }
+	.tcm-crm-detail { order: -1; }
 	.tcm-coord { grid-template-columns: 1fr; }
 }
 @media (max-width: 782px) {
 	.tcm-shell { flex-direction: column; }
-	.tcm-sidebar { flex-basis: auto; width: 100%; border-right: 0; border-bottom: 1px solid var(--tcm-border); }
-	.tcm-nav { flex-direction: row; flex-wrap: wrap; }
+	.tcm-sidebar { flex-basis: auto; width: 100%; border-right: 0; border-bottom: 1px solid var(--tcm-border); position: static; height: auto; overflow: visible; }
+	.tcm-sidebar-top { display: flex; align-items: center; justify-content: space-between; }
+	.tcm-sidebar-top .tcm-brand { padding-bottom: 4px; margin-bottom: 0; border-bottom: 0; }
+	.tcm-burger { display: flex; flex-direction: column; gap: 4px; background: none; border: 0; padding: 8px; cursor: pointer; }
+	.tcm-burger span { display: block; width: 22px; height: 2px; background: var(--tcm-text); border-radius: 2px; }
+	.tcm-sidebar-body { display: none; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--tcm-border-2); }
+	.tcm-sidebar.is-open .tcm-sidebar-body { display: flex; }
 	.tcm-app { padding: 20px 16px 40px; }
 	.tcm-stats { grid-template-columns: 1fr 1fr; }
 	.tcm-fiche-header { flex-wrap: wrap; }
@@ -486,3 +646,86 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
 	font-weight: 500 !important;
 	letter-spacing: normal !important;
 }
+
+/* --------------------------------------------------------------------------
+   Onglets de fiche en pastilles sur mobile (5 onglets ne tiennent pas en une
+   ligne à 375px). Placé APRÈS le durcissement pour surcharger ses !important.
+   -------------------------------------------------------------------------- */
+@media (max-width: 782px) {
+	body.tcm-crm-shell .tcm-tabs-nav {
+		flex-wrap: wrap; gap: 8px; overflow: visible;
+		border-bottom: 1px solid var(--tcm-border) !important;
+		padding-bottom: 14px; margin-bottom: 18px;
+	}
+	body.tcm-crm-shell .tcm-tab {
+		border: 1px solid var(--tcm-border) !important;
+		border-radius: 999px !important;
+		padding: 7px 14px !important;
+		margin: 0 !important;
+		font-size: 14px !important;
+	}
+	body.tcm-crm-shell .tcm-tab.is-active {
+		background: var(--tcm-accent-bg) !important;
+		color: var(--tcm-accent) !important;
+		border-color: var(--tcm-accent-bd) !important;
+	}
+	/* Boutons d'action de la fiche en icône seule sur mobile. */
+	body.tcm-crm-shell .tcm-act .tcm-act-ico { display: inline-flex; }
+	body.tcm-crm-shell .tcm-act .tcm-act-label { display: none; }
+	body.tcm-crm-shell .tcm-fiche-actions .tcm-act { padding: 10px 12px !important; }
+
+	/* Lignes règlements / commandes : actions à la ligne + boutons compacts. */
+	.tcm-row { flex-wrap: wrap; }
+	.tcm-row-main { flex: 1 1 100%; }
+	.tcm-row-actions { flex-wrap: wrap; width: 100%; justify-content: flex-start; }
+	body.tcm-crm-shell .tcm-row-actions .button { font-size: 12px !important; padding: 5px 9px !important; }
+}
+
+/* --------------------------------------------------------------------------
+   Formulaire d'inscription public [tcm_inscription]
+   -------------------------------------------------------------------------- */
+.tcm-insc { max-width: 720px; margin: 24px auto; font-family: var(--tcm-sans); color: var(--tcm-text); }
+.tcm-insc-title { font-size: 24px; font-weight: 700; margin: 0 0 18px; }
+.tcm-insc-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); padding: 22px 26px; border-radius: var(--tcm-radius); }
+.tcm-insc-ok h3 { margin: 0 0 8px; }
+.tcm-insc-err { background: var(--tcm-warn-bg); color: var(--tcm-warn); padding: 12px 16px; border-radius: var(--tcm-radius-sm); margin-bottom: 16px; font-weight: 600; }
+.tcm-insc-form fieldset { border: 1px solid var(--tcm-border); border-radius: var(--tcm-radius); padding: 18px 20px; margin: 0 0 18px; }
+.tcm-insc-form legend { font-weight: 600; padding: 0 8px; }
+.tcm-insc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.tcm-insc-field { display: flex; flex-direction: column; gap: 4px; }
+.tcm-insc-field.tcm-col-2 { grid-column: 1 / -1; }
+.tcm-insc-field label { font-size: 13px; font-weight: 600; color: var(--tcm-muted); }
+.tcm-insc-field input, .tcm-insc-field select, .tcm-insc textarea {
+	padding: 9px 12px; border: 1px solid var(--tcm-border); border-radius: var(--tcm-radius-sm);
+	font-size: 14px; font-family: var(--tcm-sans); background: #fff; color: var(--tcm-text);
+	box-sizing: border-box; width: 100%;
+}
+.tcm-insc-field input:focus, .tcm-insc-field select:focus, .tcm-insc textarea:focus { outline: none; border-color: var(--tcm-accent-bd); }
+.tcm-req { color: #b42318; }
+.tcm-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.tcm-insc-check { margin: 4px 0 16px; }
+.tcm-insc-check label { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.tcm-insc-submit { margin-top: 8px; }
+.tcm-insc-btn { background: var(--tcm-accent); color: #fff; border: 0; padding: 12px 26px; border-radius: var(--tcm-radius-sm); font: 600 15px var(--tcm-sans); cursor: pointer; }
+.tcm-insc-btn:hover { background: #1d4ed8; }
+
+/* Groupes radio (déjà adhérent, changement, attestation, droit à l'image) */
+.tcm-insc-radio { display: flex; flex-direction: column; gap: 8px; margin: 4px 0; }
+.tcm-insc-radiolabel { font-size: 14px; font-weight: 600; color: var(--tcm-text); }
+.tcm-insc-radios { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.tcm-insc-radio-opt { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.tcm-insc-radio-opt input { width: 18px; height: 18px; accent-color: var(--tcm-accent); }
+
+/* Consentements (règlement intérieur, assurance) */
+.tcm-insc-consent { margin: 8px 0; }
+.tcm-insc-consent label { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; cursor: pointer; }
+.tcm-insc-consent input { margin-top: 2px; width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--tcm-accent); }
+.tcm-insc-consent a { color: var(--tcm-accent); text-decoration: underline; }
+
+/* Blocs conditionnels : léger fond pour les distinguer */
+.tcm-insc-mineur, .tcm-insc-chg-wrap { background: var(--tcm-accent-bg, #f4f7ff); }
+.tcm-insc-newcoords { margin-top: 14px; }
+/* [hidden] doit primer sur display:grid/flex des blocs conditionnels */
+.tcm-insc [hidden] { display: none !important; }
+
+@media (max-width: 600px) { .tcm-insc-grid { grid-template-columns: 1fr; } }

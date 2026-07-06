@@ -14,6 +14,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Back-office autonome : on masque la barre d'administration WordPress
+// (remplacée par le compte / déconnexion dans la sidebar) et on retire le
+// décalage de 32px qu'elle injecte dans <html>.
+show_admin_bar( false );
+remove_action( 'wp_head', '_admin_bar_bump_cb' );
+
 ?><!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>

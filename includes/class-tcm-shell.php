@@ -31,11 +31,18 @@ class TCM_Shell {
 		return array(
 			array( 'label' => 'Tableau de bord', 'slug' => 'tableau-de-bord' ),
 			array( 'label' => 'Adhérents',        'slug' => 'back-office-adherents' ),
-			array( 'label' => 'Récapitulatif',    'slug' => 'recap' ),
-			array( 'label' => 'Créneaux',         'slug' => 'creneaux' ),
+			array( 'label' => 'Cours',            'slug' => 'creneaux' ),
 			array( 'label' => 'Règlements',       'slug' => 'reglements' ),
-			array( 'label' => 'Réglages',         'url'  => admin_url( 'admin.php?page=tcm-adherents' ) ),
 		);
+	}
+
+	/** Rend une entrée de navigation (marque .is-active pour la page courante). */
+	private function nav_item( string $label, string $slug, int $current ): string {
+		$page = get_page_by_path( $slug );
+		$url  = $page ? get_permalink( $page ) : '#';
+		$act  = ( $page && (int) $page->ID === $current ) ? ' is-active' : '';
+		return '<a class="tcm-nav-item' . $act . '" href="' . esc_url( $url ) . '">'
+			. '<span class="tcm-nav-ico"></span><span class="tcm-nav-label">' . esc_html( $label ) . '</span></a>';
 	}
 
 	/**
@@ -58,7 +65,7 @@ class TCM_Shell {
 
 			// Pages d'édition ACF : shell forcé par slug (évite de dépendre d'une
 			// meta _wp_page_template, pas toujours accessible en écriture).
-			$force = array( 'fiche-adherent', 'fiche-personne', 'fiche-reglement', 'fiche-commande' );
+			$force = array( 'fiche-adherent', 'fiche-personne', 'fiche-reglement', 'fiche-commande', 'creneaux', 'reglements' );
 
 			if ( self::TEMPLATE === $assigned || in_array( $slug, $force, true ) ) {
 				$custom = TCM_PATH . 'templates/tcm-crm-shell.php';
@@ -77,29 +84,34 @@ class TCM_Shell {
 	public function sc_sidebar(): string {
 		$current = (int) get_queried_object_id();
 
+		$user = wp_get_current_user();
+
 		ob_start();
 		echo '<aside class="tcm-sidebar">';
+
+		echo '<div class="tcm-sidebar-top">';
 		echo '<div class="tcm-brand"><span class="tcm-brand-mark"></span><span class="tcm-brand-name">TC Mimet</span></div>';
+		echo '<button type="button" class="tcm-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>';
+		echo '</div>';
+
+		echo '<div class="tcm-sidebar-body">';
 		echo '<nav class="tcm-nav">';
-
 		foreach ( $this->nav_items() as $item ) {
-			$active = '';
-			if ( isset( $item['url'] ) ) {
-				$url = $item['url'];
-			} else {
-				$page = get_page_by_path( $item['slug'] );
-				$url  = $page ? get_permalink( $page ) : '#';
-				if ( $page && (int) $page->ID === $current ) {
-					$active = ' is-active';
-				}
-			}
-			echo '<a class="tcm-nav-item' . $active . '" href="' . esc_url( $url ) . '">'
-				. '<span class="tcm-nav-ico"></span>'
-				. '<span class="tcm-nav-label">' . esc_html( $item['label'] ) . '</span>'
-				. '</a>';
+			echo $this->nav_item( $item['label'], $item['slug'], $current );
 		}
-
 		echo '</nav>';
+
+		// Pied de barre : Récapitulatif + compte (remplace la barre admin WP).
+		echo '<div class="tcm-sidebar-footer">';
+		echo $this->nav_item( 'Récapitulatif', 'recap', $current );
+		echo '<div class="tcm-user">';
+		echo '<span class="tcm-user-name">' . esc_html( $user->display_name ) . '</span>';
+		echo '<a class="tcm-user-link" href="' . esc_url( admin_url() ) . '">Administration</a>';
+		echo '<a class="tcm-user-link" href="' . esc_url( wp_logout_url( home_url() ) ) . '">Déconnexion</a>';
+		echo '</div>';
+		echo '</div>';
+		echo '</div>';
+
 		echo '</aside>';
 		return (string) ob_get_clean();
 	}

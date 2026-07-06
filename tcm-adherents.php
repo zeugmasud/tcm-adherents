@@ -3,7 +3,7 @@
  * Plugin Name:       TC Mimet — Gestion des adhérents
  * Plugin URI:        https://dev.tcmimet.fr
  * Description:       Gestion multi-saison des adhérents, règlements, commandes, créneaux et inscriptions du Tennis Club Mimet. Modèle de données en CPT + ACF Pro, logique métier sur-mesure (dédoublonnage Nom+DOB, agrégation multi-saison, webhook HelloAsso, import historique).
- * Version:           0.2.5
+ * Version:           0.3.0
  * Requires at least: 6.4
  * Requires PHP:      8.0
  * Author:            ZWA
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // -----------------------------------------------------------------------------
 // Constantes
 // -----------------------------------------------------------------------------
-define( 'TCM_VERSION', '0.2.5' );
+define( 'TCM_VERSION', '0.3.0' );
 define( 'TCM_FILE', __FILE__ );
 define( 'TCM_PATH', plugin_dir_path( __FILE__ ) );
 define( 'TCM_URL', plugin_dir_url( __FILE__ ) );
@@ -56,6 +56,10 @@ require_once TCM_PATH . 'includes/class-tcm-shell.php';
 require_once TCM_PATH . 'includes/class-tcm-dashboard.php';
 require_once TCM_PATH . 'includes/class-tcm-chart.php';
 require_once TCM_PATH . 'includes/class-tcm-facture.php';
+require_once TCM_PATH . 'includes/class-tcm-crud.php';
+require_once TCM_PATH . 'includes/class-tcm-planning.php';
+require_once TCM_PATH . 'includes/class-tcm-normalize.php';
+require_once TCM_PATH . 'includes/class-tcm-inscription.php';
 require_once TCM_PATH . 'includes/class-tcm-import-full.php';
 require_once TCM_PATH . 'includes/class-tcm-plugin.php';
 

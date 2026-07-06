@@ -17,6 +17,8 @@ class TCM_Dashboard {
 		add_shortcode( 'tcm_fiche', array( $this, 'sc_fiche' ) );
 		add_shortcode( 'tcm_recap', array( $this, 'sc_recap' ) );
 		add_shortcode( 'tcm_stats', array( $this, 'sc_stats' ) );
+		add_shortcode( 'tcm_reglements', array( $this, 'sc_reglements' ) );
+		add_action( 'admin_post_tcm_reinscrire', array( $this, 'handle_reinscrire' ) );
 		add_shortcode( 'tcm_crm', array( $this, 'sc_crm' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_filter( 'acf/fields/post_object/result/name=adherent', function( $title, $post ) {
@@ -105,8 +107,10 @@ class TCM_Dashboard {
 			array(),
 			null
 		);
-		wp_enqueue_style( 'tcm-frontoffice', TCM_URL . 'assets/tcm-frontoffice.css', array( 'tcm-font-rubik' ), TCM_VERSION );
-		wp_enqueue_script( 'tcm-frontoffice', TCM_URL . 'assets/tcm-frontoffice.js', array(), TCM_VERSION, true );
+		$css = TCM_PATH . 'assets/tcm-frontoffice.css';
+		$js  = TCM_PATH . 'assets/tcm-frontoffice.js';
+		wp_enqueue_style( 'tcm-frontoffice', TCM_URL . 'assets/tcm-frontoffice.css', array( 'tcm-font-rubik' ), file_exists( $css ) ? filemtime( $css ) : TCM_VERSION );
+		wp_enqueue_script( 'tcm-frontoffice', TCM_URL . 'assets/tcm-frontoffice.js', array(), file_exists( $js ) ? filemtime( $js ) : TCM_VERSION, true );
 	}
 
 	/**
@@ -153,6 +157,7 @@ class TCM_Dashboard {
 				'age'     => $this->age_from( get_field( 'date_naissance', $pid ) ),
 				'complet' => (bool) get_field( 'dossier_complet', $aid ),
 				'adoc'    => (bool) get_field( 'adoc_valide', $aid ),
+				'sexe'    => $this->sexe_from( get_field( 'civilite', $pid ) ),
 			);
 		}
 		wp_reset_postdata();
@@ -184,6 +189,11 @@ class TCM_Dashboard {
 
 		foreach ( $rows as $r ) {
 			$cls  = ( $r['aid'] === $id ) ? ' is-active' : '';
+			if ( 'g' === $r['sexe'] ) {
+				$cls .= ' sexe-g';
+			} elseif ( 'f' === $r['sexe'] ) {
+				$cls .= ' sexe-f';
+			}
 			$href = esc_url( add_query_arg( array( 'id' => $r['aid'], 'saison' => $saison ), $page_url ) );
 			$sub  = 'Saison ' . esc_html( $r['saison'] );
 			if ( null !== $r['age'] ) {
@@ -203,7 +213,7 @@ class TCM_Dashboard {
 		}
 
 		echo '</div><div class="tcm-crm-detail">';
-		echo $id ? do_shortcode( '[tcm_fiche id="' . $id . '"]' ) : '<p>Sélectionnez un adhérent à gauche.</p>';
+		echo $id ? do_shortcode( '[tcm_fiche id="' . $id . '"]' ) : '<p>Sélectionnez un adhérent dans la liste.</p>';
 		echo '</div></div>';
 		return (string) ob_get_clean();
 	}
@@ -221,6 +231,18 @@ class TCM_Dashboard {
 		return (int) $naissance->diff( new DateTime( 'today' ) )->y;
 	}
 
+	/** Sexe déduit de la civilité : 'g' (M./Monsieur) ou 'f' (Mme/Madame), '' sinon. */
+	private function sexe_from( $civilite ): string {
+		$c = strtolower( trim( (string) $civilite ) );
+		if ( 'm.' === $c || 'm' === $c || 'monsieur' === $c ) {
+			return 'g';
+		}
+		if ( 'mme' === $c || 'mme.' === $c || 'madame' === $c || 'mlle' === $c ) {
+			return 'f';
+		}
+		return '';
+	}
+
 	/** Icône « check » — dossier complet. */
 	private function icon_check(): string {
 		return '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8.2 13.3 4.9 10l-1.2 1.2 4.5 4.5 9-9L16 5.5z"/></svg>';
@@ -231,40 +253,138 @@ class TCM_Dashboard {
 		return '<svg viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M10 1 3 4v5c0 4.4 3 8.5 7 10 4-1.5 7-5.6 7-10V4z"/><path fill="#fff" d="M8.8 12.2 6.3 9.7l1-1 1.5 1.5 3.4-3.4 1 1z"/></svg>';
 	}
 
+	/** Icône crayon — éditer l'adhésion. */
+	private function icon_edit(): string {
+		return '<svg class="tcm-act-ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 13.4 12.9 4.5l2.6 2.6L6.6 16H4zM14.1 3.3l1.1-1.1a1 1 0 0 1 1.4 0l1.2 1.2a1 1 0 0 1 0 1.4l-1.1 1.1z"/></svg>';
+	}
+
+	/** Icône personne — éditer les coordonnées. */
+	private function icon_user(): string {
+		return '<svg class="tcm-act-ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm0 1.6c-3.1 0-6.2 1.6-6.2 3.9V17h12.4v-1.5c0-2.3-3.1-3.9-6.2-3.9z"/></svg>';
+	}
+
+	/** Icône rafraîchir — réinscrire. */
+	private function icon_refresh(): string {
+		return '<svg class="tcm-act-ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10 4V1L5.5 5 10 9V6a4 4 0 1 1-4 4H4a6 6 0 1 0 6-6z"/></svg>';
+	}
+
 	public function sc_stats( $atts ): string {
 		if ( ! current_user_can( 'tcm_manage' ) ) {
 			return '<p>Accès réservé.</p>';
 		}
-		$atts = shortcode_atts( array( 'saison' => '' ), $atts );
-		$saison = sanitize_text_field( $atts['saison'] );
+		$atts   = shortcode_atts( array( 'saison' => '' ), $atts );
+		$saison = isset( $_GET['saison'] ) ? sanitize_text_field( wp_unslash( $_GET['saison'] ) ) : ( '' !== $atts['saison'] ? $atts['saison'] : 'all' );
+		$cmp    = isset( $_GET['cmp'] ) ? sanitize_text_field( wp_unslash( $_GET['cmp'] ) ) : '';
 
-		$tax_query = array();
-		if ( '' !== $saison ) {
-			$tax_query[] = array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'field' => 'name', 'terms' => $saison );
+		$cur = $this->compute_stats( $saison );
+		$ref = ( '' !== $cmp && $cmp !== $saison ) ? $this->compute_stats( $cmp ) : null;
+
+		ob_start();
+		echo $this->stats_selectors( $saison, $cmp );
+		echo '<div class="tcm-stats">';
+		echo $this->stat_tile( 'Personnes', $cur['personnes'], $ref['personnes'] ?? null );
+		echo $this->stat_tile( 'Adhésions', $cur['adhesions'], $ref['adhesions'] ?? null );
+		echo $this->stat_tile( 'Dossiers incomplets', $cur['incomplets'], $ref['incomplets'] ?? null, true, true );
+		echo $this->stat_tile( 'Encaissé', $cur['encaisse'], $ref['encaisse'] ?? null, false, false, true );
+		echo $this->stat_tile( 'ADOC validés', $cur['adoc'], $ref['adoc'] ?? null );
+		echo '</div>';
+		return (string) ob_get_clean();
+	}
+
+	private function stats_selectors( string $saison, string $cmp ): string {
+		$terms = get_terms( array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'DESC' ) );
+		ob_start();
+		echo '<form method="get" class="tcm-stats-bar">';
+		echo '<label>Saison <select name="saison" onchange="this.form.submit()"><option value="all" ' . selected( $saison, 'all', false ) . '>Toutes</option>';
+		if ( ! is_wp_error( $terms ) ) {
+			foreach ( $terms as $t ) {
+				echo '<option value="' . esc_attr( $t->name ) . '" ' . selected( $saison, $t->name, false ) . '>' . esc_html( $t->name ) . '</option>';
+			}
+		}
+		echo '</select></label>';
+		echo '<label>Comparer avec <select name="cmp" onchange="this.form.submit()"><option value="">—</option>';
+		if ( ! is_wp_error( $terms ) ) {
+			foreach ( $terms as $t ) {
+				echo '<option value="' . esc_attr( $t->name ) . '" ' . selected( $cmp, $t->name, false ) . '>' . esc_html( $t->name ) . '</option>';
+			}
+		}
+		echo '</select></label>';
+		echo '</form>';
+		return (string) ob_get_clean();
+	}
+
+	private function stat_tile( string $label, float $val, ?float $ref, bool $neutral = false, bool $is_warn_tile = false, bool $euro = false ): string {
+		$disp = $euro ? number_format( $val, 0, ',', ' ' ) . ' €' : (string) (int) $val;
+		ob_start();
+		echo '<div class="tcm-stat' . ( $is_warn_tile ? ' is-warn' : '' ) . '">';
+		echo '<span class="tcm-stat-title">' . esc_html( $label ) . '</span>';
+		echo '<strong>' . esc_html( $disp ) . '</strong>';
+		if ( null !== $ref ) {
+			$d = $val - $ref;
+			if ( abs( $d ) < 0.001 ) {
+				$cls = 'flat'; $arrow = '='; $txt = '±0';
+			} else {
+				$up    = $d > 0;
+				$arrow = $up ? '▲' : '▼';
+				$cls   = $neutral ? 'flat' : ( $up ? 'up' : 'down' );
+				$txt   = ( $up ? '+' : '−' ) . ( $euro ? number_format( abs( $d ), 0, ',', ' ' ) . ' €' : (string) (int) abs( $d ) );
+			}
+			echo '<span class="tcm-delta tcm-delta-' . $cls . '">' . $arrow . ' ' . esc_html( $txt ) . '</span>';
+		}
+		echo '</div>';
+		return (string) ob_get_clean();
+	}
+
+	/** Calcule les KPI pour une saison ('all' = toutes). */
+	private function compute_stats( string $saison ): array {
+		$all        = ( '' === $saison || 'all' === $saison );
+		$saison_tax = $all ? array() : array( array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'field' => 'name', 'terms' => $saison ) );
+
+		$adh_ids = get_posts( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'tax_query' => $saison_tax ?: array() ) );
+
+		$persons = array();
+		foreach ( $adh_ids as $a ) {
+			$persons[ (int) get_field( 'personne', $a ) ] = 1;
 		}
 
-		$adh = new WP_Query( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'tax_query' => $tax_query ?: array(), 'no_found_rows' => true ) );
-		$incomplets = new WP_Query( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'tax_query' => array( array( 'taxonomy' => TCM_Taxonomies::TAX_DOSSIER, 'field' => 'name', 'terms' => 'Incomplet' ) ), 'no_found_rows' => true ) );
-		$adoc = new WP_Query( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'meta_query' => array( array( 'key' => 'adoc_valide', 'value' => '1', 'compare' => '=' ) ), 'no_found_rows' => true ) );
-		$regs = get_posts( array( 'post_type' => TCM_CPT_REGLEMENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'meta_query' => array( array( 'key' => 'statut', 'value' => 'valide', 'compare' => '=' ) ) ) );
+		$inc_tax   = $saison_tax;
+		$inc_tax[] = array( 'taxonomy' => TCM_Taxonomies::TAX_DOSSIER, 'field' => 'name', 'terms' => 'Incomplet' );
+		if ( count( $inc_tax ) > 1 ) {
+			$inc_tax['relation'] = 'AND';
+		}
+		$incomplets = get_posts( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'tax_query' => $inc_tax ) );
+
+		$adoc = get_posts( array(
+			'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids',
+			'tax_query' => $saison_tax ?: array(),
+			'meta_query' => array( array( 'key' => 'adoc_valide', 'value' => '1', 'compare' => '=' ) ),
+		) );
+
 		$encaisse = 0.0;
+		if ( $all ) {
+			$regs = get_posts( array( 'post_type' => TCM_CPT_REGLEMENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'meta_query' => array( array( 'key' => 'statut', 'value' => 'valide' ) ) ) );
+		} elseif ( $adh_ids ) {
+			$regs = get_posts( array(
+				'post_type' => TCM_CPT_REGLEMENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids',
+				'meta_query' => array( 'relation' => 'AND',
+					array( 'key' => 'adherent', 'value' => $adh_ids, 'compare' => 'IN' ),
+					array( 'key' => 'statut', 'value' => 'valide' ),
+				),
+			) );
+		} else {
+			$regs = array();
+		}
 		foreach ( $regs as $rid ) {
 			$encaisse += (float) get_field( 'montant', $rid );
 		}
 
-		// Personnes distinctes (identité stable, indépendantes de la saison).
-		$personnes_pub = wp_count_posts( TCM_CPT_PERSONNE );
-		$nb_personnes  = isset( $personnes_pub->publish ) ? (int) $personnes_pub->publish : 0;
-
-		ob_start();
-		echo '<div class="tcm-stats">';
-		echo '<div class="tcm-stat"><span class="tcm-stat-title">Personnes</span><strong>' . esc_html( (string) $nb_personnes ) . '</strong></div>';
-		echo '<div class="tcm-stat"><span class="tcm-stat-title">Adhésions</span><strong>' . esc_html( (string) $adh->post_count ) . '</strong></div>';
-		echo '<div class="tcm-stat is-warn"><span class="tcm-stat-title">Dossiers incomplets</span><strong>' . esc_html( (string) $incomplets->post_count ) . '</strong></div>';
-		echo '<div class="tcm-stat"><span class="tcm-stat-title">Encaissé</span><strong>' . esc_html( number_format( $encaisse, 0, ',', ' ' ) ) . ' €</strong></div>';
-		echo '<div class="tcm-stat"><span class="tcm-stat-title">ADOC validés</span><strong>' . esc_html( (string) $adoc->post_count ) . '</strong></div>';
-		echo '</div>';
-		return (string) ob_get_clean();
+		return array(
+			'personnes'  => (float) count( $persons ),
+			'adhesions'  => (float) count( $adh_ids ),
+			'incomplets' => (float) count( $incomplets ),
+			'adoc'       => (float) count( $adoc ),
+			'encaisse'   => $encaisse,
+		);
 	}
 
 	public function sc_fiche( $atts ): string {
@@ -303,6 +423,19 @@ class TCM_Dashboard {
 			}
 		}
 
+		// Notice après une opération CRUD règlement/commande.
+		if ( isset( $_GET['msg'] ) ) {
+			$m = array(
+				'saved'   => array( 'ok', 'Enregistré.' ),
+				'deleted' => array( 'ok', 'Supprimé.' ),
+				'error'   => array( 'err', 'Opération impossible.' ),
+			);
+			$k = sanitize_key( wp_unslash( $_GET['msg'] ) );
+			if ( isset( $m[ $k ] ) ) {
+				echo '<div class="tcm-notice tcm-notice-' . esc_attr( $m[ $k ][0] ) . '">' . esc_html( $m[ $k ][1] ) . '</div>';
+			}
+		}
+
 		// En-tête : avatar (initiales) + identité (badges) + actions.
 		$initiales = '';
 		foreach ( preg_split( '/\s+/', trim( $nom ) ) as $mot ) {
@@ -324,21 +457,39 @@ class TCM_Dashboard {
 		echo '</p>';
 		echo '</div>';
 		echo '<div class="tcm-fiche-actions">';
-		echo '<a class="button button-primary" href="' . $edit_adh . '">Éditer l’adhésion</a> ';
-		echo '<a class="button" href="' . $edit_per . '">Éditer les coordonnées</a>';
+		echo '<a class="button button-primary tcm-act" href="' . $edit_adh . '" title="Éditer l’adhésion" aria-label="Éditer l’adhésion">' . $this->icon_edit() . '<span class="tcm-act-label">Éditer l’adhésion</span></a> ';
+		echo '<a class="button tcm-act" href="' . $edit_per . '" title="Éditer les coordonnées" aria-label="Éditer les coordonnées">' . $this->icon_user() . '<span class="tcm-act-label">Éditer les coordonnées</span></a>';
+		$sc = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
+		if ( ! TCM_Logic::adherent_pour_saison( $pid, $sc ) ) {
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="tcm-reinscrire" onsubmit="return confirm(\'Réinscrire pour la saison ' . esc_js( $sc ) . ' ?\');">';
+			wp_nonce_field( 'tcm_reinscrire' );
+			echo '<input type="hidden" name="action" value="tcm_reinscrire">';
+			echo '<input type="hidden" name="adherent" value="' . (int) $id . '">';
+			echo '<button type="submit" class="button tcm-act" title="Réinscrire ' . esc_attr( $sc ) . '" aria-label="Réinscrire ' . esc_attr( $sc ) . '">' . $this->icon_refresh() . '<span class="tcm-act-label">Réinscrire ' . esc_html( $sc ) . '</span></button>';
+			echo '</form>';
+		}
 		echo '</div>';
 		echo '</div>';
+
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'coordonnees';
+		if ( ! in_array( $active_tab, array( 'coordonnees', 'reglements', 'commandes', 'inscriptions', 'historique' ), true ) ) {
+			$active_tab = 'coordonnees';
+		}
+		$act       = static function ( $t ) use ( $active_tab ) { return $active_tab === $t ? ' is-active' : ''; };
+		$fiche_url = add_query_arg( 'id', $id, get_permalink() );
+		$edit_reg  = (int) ( $_GET['edit_reg'] ?? 0 );
+		$edit_cmd  = (int) ( $_GET['edit_cmd'] ?? 0 );
 
 		echo '<div class="tcm-tabs">';
 		echo '<div class="tcm-tabs-nav">';
-		echo '<button type="button" class="tcm-tab is-active" data-tab="tcm-tab-coordonnees">Coordonnées</button>';
-		echo '<button type="button" class="tcm-tab" data-tab="tcm-tab-reglements">Règlements</button>';
-		echo '<button type="button" class="tcm-tab" data-tab="tcm-tab-commandes">Commandes</button>';
-		echo '<button type="button" class="tcm-tab" data-tab="tcm-tab-inscriptions">Inscriptions</button>';
-		echo '<button type="button" class="tcm-tab" data-tab="tcm-tab-historique">Historique</button>';
+		echo '<button type="button" class="tcm-tab' . $act( 'coordonnees' ) . '" data-tab="tcm-tab-coordonnees">Coordonnées</button>';
+		echo '<button type="button" class="tcm-tab' . $act( 'reglements' ) . '" data-tab="tcm-tab-reglements">Règlements</button>';
+		echo '<button type="button" class="tcm-tab' . $act( 'commandes' ) . '" data-tab="tcm-tab-commandes">Commandes</button>';
+		echo '<button type="button" class="tcm-tab' . $act( 'inscriptions' ) . '" data-tab="tcm-tab-inscriptions">Cours</button>';
+		echo '<button type="button" class="tcm-tab' . $act( 'historique' ) . '" data-tab="tcm-tab-historique">Historique</button>';
 		echo '</div>';
 
-		echo '<div class="tcm-tabpanel is-active" id="tcm-tab-coordonnees">';
+		echo '<div class="tcm-tabpanel' . $act( 'coordonnees' ) . '" id="tcm-tab-coordonnees">';
 		echo '<div class="tcm-fiche-section"><h3>Coordonnées</h3><ul class="tcm-coord">';
 		foreach ( array( 'date_naissance' => 'Naissance', 'email' => 'Email', 'telephone' => 'Tél', 'adresse' => 'Adresse', 'cp' => 'CP', 'ville' => 'Ville' ) as $f => $label ) {
 			$v = get_field( $f, $pid );
@@ -356,61 +507,17 @@ class TCM_Dashboard {
 		echo '</div>';
 
 		$regs = $this->children_of( TCM_CPT_REGLEMENT, $id );
-		$total = 0.0;
-		echo '<div class="tcm-tabpanel" id="tcm-tab-reglements">';
-		echo '<div class="tcm-fiche-section"><h3>Règlements <a class="button button-small" href="' . $add_reg . '">+ Ajouter</a></h3>';
-		if ( $regs ) {
-			echo '<table class="tcm-table"><thead><tr><th>Date</th><th>Canal</th><th>Montant</th><th>Statut</th></tr></thead><tbody>';
-			foreach ( $regs as $r ) {
-				$m = (float) get_field( 'montant', $r->ID );
-				$total += $m;
-				$canal = self::CANAUX[ get_field( 'canal', $r->ID ) ] ?? get_field( 'canal', $r->ID );
-				echo '<tr><td>' . esc_html( $this->fr_date( get_field( 'date_reglement', $r->ID ) ) ) . '</td>';
-				echo '<td>' . esc_html( $canal ) . '</td>';
-				echo '<td>' . esc_html( number_format( $m, 2, ',', ' ' ) ) . ' €</td>';
-				echo '<td>' . esc_html( get_field( 'statut', $r->ID ) ) . '</td></tr>';
-			}
-			echo '</tbody><tfoot><tr><th colspan="2">Total payé</th><th colspan="2">' . esc_html( number_format( $total, 2, ',', ' ' ) ) . ' €</th></tr></tfoot></table>';
-		} else {
-			echo '<p>Aucun règlement.</p>';
-		}
-		echo '</div>';
+		echo '<div class="tcm-tabpanel' . $act( 'reglements' ) . '" id="tcm-tab-reglements">';
+		echo ( new TCM_Crud() )->reglements_section( $id, $regs, $fiche_url, $edit_reg );
 		echo '</div>';
 
 		$cmds = $this->children_of( TCM_CPT_COMMANDE, $id );
-		echo '<div class="tcm-tabpanel" id="tcm-tab-commandes">';
-		echo '<div class="tcm-fiche-section"><h3>Commandes <a class="button button-small" href="' . $add_cmd . '">+ Ajouter</a></h3>';
-		if ( $cmds ) {
-			echo '<table class="tcm-table"><thead><tr><th>Libellé</th><th>Montant</th><th>Attestation</th></tr></thead><tbody>';
-			foreach ( $cmds as $c ) {
-				$pdf_url  = esc_url( TCM_Facture::url_pdf( $c->ID ) );
-				$mail_url = esc_url( TCM_Facture::url_mail( $c->ID ) );
-				echo '<tr><td>' . esc_html( get_field( 'libelle', $c->ID ) ) . '</td>';
-				echo '<td>' . esc_html( number_format( (float) get_field( 'montant', $c->ID ), 2, ',', ' ' ) ) . ' €</td>';
-				echo '<td class="tcm-facture-actions"><a class="button button-small" href="' . $pdf_url . '" target="_blank" rel="noopener">Attestation PDF</a> ';
-				echo '<a class="button button-small" href="' . $mail_url . '" onclick="return confirm(\'Envoyer cette attestation par e-mail à l’adhérent ?\');">Envoyer</a></td></tr>';
-			}
-			echo '</tbody></table>';
-		} else {
-			echo '<p>Aucune commande.</p>';
-		}
-		echo '</div>';
+		echo '<div class="tcm-tabpanel' . $act( 'commandes' ) . '" id="tcm-tab-commandes">';
+		echo ( new TCM_Crud() )->commandes_section( $id, $cmds, $fiche_url, $edit_cmd, (string) $saison );
 		echo '</div>';
 
-		$ins = $this->children_of( TCM_CPT_INSCRIPTION, $id );
-		echo '<div class="tcm-tabpanel" id="tcm-tab-inscriptions">';
-		echo '<div class="tcm-fiche-section"><h3>Inscriptions</h3>';
-		if ( $ins ) {
-			echo '<ul class="tcm-inscriptions">';
-			foreach ( $ins as $i ) {
-				$cid = (int) get_field( 'creneau', $i->ID );
-				echo '<li>' . esc_html( get_the_title( $cid ) ) . ' — <em>' . esc_html( get_field( 'statut', $i->ID ) ) . '</em></li>';
-			}
-			echo '</ul>';
-		} else {
-			echo '<p>Aucune inscription.</p>';
-		}
-		echo '</div>';
+		echo '<div class="tcm-tabpanel' . $act( 'inscriptions' ) . '" id="tcm-tab-inscriptions">';
+		echo ( new TCM_Planning() )->adherent_inscriptions_section( $id, (string) $saison, $fiche_url );
 		echo '</div>';
 
 		$autres = get_posts( array(
@@ -422,7 +529,7 @@ class TCM_Dashboard {
 			'meta_value'     => $pid,
 			'exclude'        => array( $id ),
 		) );
-		echo '<div class="tcm-tabpanel" id="tcm-tab-historique">';
+		echo '<div class="tcm-tabpanel' . $act( 'historique' ) . '" id="tcm-tab-historique">';
 		if ( $autres ) {
 			echo '<div class="tcm-fiche-section"><h3>Historique</h3><ul>';
 			foreach ( $autres as $aid ) {
@@ -438,6 +545,113 @@ class TCM_Dashboard {
 		echo '</div>';
 		echo '</div>';
 		return (string) ob_get_clean();
+	}
+
+	/** Vue trésorier : tous les règlements, filtrables par saison. */
+	public function sc_reglements( $atts ): string {
+		if ( ! current_user_can( 'tcm_manage' ) ) {
+			return '<p>Accès réservé.</p>';
+		}
+		$saison = isset( $_GET['saison'] ) ? sanitize_text_field( wp_unslash( $_GET['saison'] ) ) : 'all';
+		$labels = array( 'valide' => 'Validé', 'en_attente' => 'En attente', 'rembourse' => 'Remboursé' );
+
+		$regs  = get_posts( array( 'post_type' => TCM_CPT_REGLEMENT, 'posts_per_page' => -1, 'post_status' => 'publish' ) );
+		$rows  = array();
+		$total = 0.0;
+		foreach ( $regs as $r ) {
+			$aid = (int) get_field( 'adherent', $r->ID );
+			$sai = (string) get_field( 'saison', $aid );
+			if ( 'all' !== $saison && $sai !== $saison ) {
+				continue;
+			}
+			$pid    = $aid ? (int) get_field( 'personne', $aid ) : 0;
+			$m      = (float) get_field( 'montant', $r->ID );
+			$total += $m;
+			$rows[] = array(
+				'date'    => (string) get_field( 'date_reglement', $r->ID ),
+				'nom'     => $this->person_name( $pid ),
+				'aid'     => $aid,
+				'saison'  => $sai,
+				'canal'   => self::CANAUX[ get_field( 'canal', $r->ID ) ] ?? (string) get_field( 'canal', $r->ID ),
+				'montant' => $m,
+				'statut'  => $labels[ get_field( 'statut', $r->ID ) ] ?? (string) get_field( 'statut', $r->ID ),
+			);
+		}
+		usort( $rows, static function ( $a, $b ) {
+			return strcasecmp( remove_accents( $a['nom'] ), remove_accents( $b['nom'] ) );
+		} );
+
+		ob_start();
+		echo '<div class="tcm-recap">';
+		echo '<form method="get" class="tcm-filtres">';
+		echo '<select name="saison" onchange="this.form.submit()"><option value="all" ' . selected( $saison, 'all', false ) . '>Toutes saisons</option>';
+		$saisons = get_terms( array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'DESC' ) );
+		if ( ! is_wp_error( $saisons ) ) {
+			foreach ( $saisons as $t ) {
+				echo '<option value="' . esc_attr( $t->name ) . '" ' . selected( $saison, $t->name, false ) . '>Saison ' . esc_html( $t->name ) . '</option>';
+			}
+		}
+		echo '</select>';
+		echo '<span class="tcm-count">' . count( $rows ) . ' règlements · <strong>' . esc_html( number_format( $total, 2, ',', ' ' ) ) . ' €</strong> encaissés</span>';
+		echo '</form>';
+
+		if ( ! $rows ) {
+			echo '<p>Aucun règlement.</p></div>';
+			return (string) ob_get_clean();
+		}
+		$bo = $this->page_url( 'back-office-adherents' );
+		echo '<div class="tcm-table-wrap"><table class="tcm-table tcm-sortable"><thead><tr><th>Date</th><th>Adhérent</th><th>Saison</th><th>Canal</th><th>Montant</th><th>Statut</th></tr></thead><tbody>';
+		foreach ( $rows as $r ) {
+			$fic = esc_url( add_query_arg( array( 'id' => $r['aid'], 'tab' => 'reglements' ), $bo ) );
+			echo '<tr>';
+			echo '<td>' . esc_html( $this->fr_date( $r['date'] ) ) . '</td>';
+			echo '<td><a class="tcm-link" href="' . $fic . '">' . esc_html( $r['nom'] ) . '</a></td>';
+			echo '<td>' . esc_html( $r['saison'] ) . '</td>';
+			echo '<td>' . esc_html( $r['canal'] ) . '</td>';
+			echo '<td>' . esc_html( number_format( $r['montant'], 2, ',', ' ' ) ) . ' €</td>';
+			echo '<td>' . esc_html( $r['statut'] ) . '</td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table></div>';
+		return (string) ob_get_clean();
+	}
+
+	/** Réinscrit la personne d'un adhérent pour la saison courante (si absente). */
+	public function handle_reinscrire(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_reinscrire' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		$adh      = (int) ( $_POST['adherent'] ?? 0 );
+		$bo       = $this->page_url( 'back-office-adherents' );
+		if ( ! $adh || get_post_type( $adh ) !== TCM_CPT_ADHERENT ) {
+			wp_safe_redirect( $bo );
+			exit;
+		}
+		$pid    = (int) get_field( 'personne', $adh );
+		$saison = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
+
+		$existing = TCM_Logic::adherent_pour_saison( $pid, $saison );
+		if ( $existing ) {
+			$target = (int) $existing;
+		} else {
+			$new = wp_insert_post( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'post_title' => 'Adhérent' ) );
+			update_field( 'personne', $pid, $new );
+			update_field( 'saison', $saison, $new );
+			update_field( 'mineur', get_field( 'mineur', $adh ) ? 1 : 0, $new );
+			foreach ( array( 'parent_mere_nom', 'parent_mere_tel', 'parent_pere_nom', 'parent_pere_tel', 'autre_contact', 'id_adoc' ) as $f ) {
+				$v = get_field( $f, $adh );
+				if ( '' !== $v && null !== $v ) {
+					update_field( $f, $v, $new );
+				}
+			}
+			update_field( 'dossier_complet', 0, $new );
+			update_field( 'adoc_valide', 0, $new );
+			update_field( 'nouvel_adherent', 0, $new );
+			TCM_Taxonomies::sync_adherent( $new );
+			$target = (int) $new;
+		}
+		wp_safe_redirect( add_query_arg( array( 'id' => $target, 'saison' => $saison, 'msg' => 'saved' ), $bo ) );
+		exit;
 	}
 
 	public function sc_recap( $atts ): string {
@@ -474,8 +688,7 @@ class TCM_Dashboard {
 		$q = new WP_Query( array(
 			'post_type'      => TCM_CPT_ADHERENT,
 			'post_status'    => 'publish',
-			'posts_per_page' => (int) $atts['par_page'],
-			'paged'          => $paged,
+			'posts_per_page' => -1,
 			'orderby'        => 'title',
 			'order'          => 'ASC',
 			's'              => $search,
@@ -513,44 +726,57 @@ class TCM_Dashboard {
 			return (string) ob_get_clean();
 		}
 
-		$fiche_url = $this->page_url( 'fiche' );
-		echo '<table class="tcm-table tcm-recap-table"><thead><tr>';
-		echo '<th>Nom</th><th>Prénom</th><th>Naissance</th><th>Saison</th><th>Dossier</th><th>Mineur</th><th>ADOC</th><th>Payé</th><th>Email</th><th>Tél</th><th></th>';
-		echo '</tr></thead><tbody>';
-
+		$fiche_url = $this->page_url( 'back-office-adherents' );
+		$data = array();
 		while ( $q->have_posts() ) {
 			$q->the_post();
-			$aid = get_the_ID();
-			$pid = (int) get_field( 'personne', $aid );
+			$aid  = get_the_ID();
+			$pid  = (int) get_field( 'personne', $aid );
+			$regs = $this->children_of( TCM_CPT_REGLEMENT, $aid );
+			$paye = 0.0;
+			foreach ( $regs as $r ) {
+				$paye += (float) get_field( 'montant', $r->ID );
+			}
+			$data[] = array(
+				'aid'     => $aid,
+				'nom'     => (string) get_field( 'nom', $pid ),
+				'prenom'  => (string) get_field( 'prenom', $pid ),
+				'dob'     => get_field( 'date_naissance', $pid ),
+				'saison'  => (string) get_field( 'saison', $aid ),
+				'complet' => (bool) get_field( 'dossier_complet', $aid ),
+				'mineur'  => (bool) get_field( 'mineur', $aid ),
+				'adoc'    => (bool) get_field( 'adoc_valide', $aid ),
+				'paye'    => $paye,
+				'email'   => (string) get_field( 'email', $pid ),
+				'tel'     => get_field( 'telephone', $pid ),
+			);
+		}
+		wp_reset_postdata();
+		usort( $data, static function ( $a, $b ) {
+			return strcasecmp( remove_accents( $a['nom'] ), remove_accents( $b['nom'] ) );
+		} );
 
-			$regs  = $this->children_of( TCM_CPT_REGLEMENT, $aid );
-			$paye  = 0.0;
-			foreach ( $regs as $r ) { $paye += (float) get_field( 'montant', $r->ID ); }
-
-			$fiche = esc_url( add_query_arg( 'id', $aid, $fiche_url ) );
+		echo '<div class="tcm-table-wrap"><table class="tcm-table tcm-recap-table tcm-sortable"><thead><tr>';
+		echo '<th>Nom</th><th>Prénom</th><th>Naissance</th><th>Saison</th><th>Dossier</th><th>Mineur</th><th>ADOC</th><th>Payé</th><th>Email</th><th>Tél</th><th class="tcm-no-sort"></th>';
+		echo '</tr></thead><tbody>';
+		foreach ( $data as $d ) {
+			$fiche = esc_url( add_query_arg( 'id', $d['aid'], $fiche_url ) );
 			echo '<tr>';
-			echo '<td>' . esc_html( get_field( 'nom', $pid ) ) . '</td>';
-			echo '<td>' . esc_html( get_field( 'prenom', $pid ) ) . '</td>';
-			echo '<td>' . esc_html( $this->fr_date( get_field( 'date_naissance', $pid ) ) ) . '</td>';
-			echo '<td>' . esc_html( get_field( 'saison', $aid ) ) . '</td>';
-			echo '<td>' . ( get_field( 'dossier_complet', $aid ) ? '✓' : '—' ) . '</td>';
-			echo '<td>' . ( get_field( 'mineur', $aid ) ? '✓' : '' ) . '</td>';
-			echo '<td>' . ( get_field( 'adoc_valide', $aid ) ? '✓' : '' ) . '</td>';
-			echo '<td>' . esc_html( number_format( $paye, 0, ',', ' ' ) ) . ' €</td>';
-			echo '<td>' . esc_html( get_field( 'email', $pid ) ) . '</td>';
-			echo '<td>' . esc_html( $this->fr_phone( get_field( 'telephone', $pid ) ) ) . '</td>';
+			echo '<td>' . esc_html( $d['nom'] ) . '</td>';
+			echo '<td>' . esc_html( $d['prenom'] ) . '</td>';
+			echo '<td>' . esc_html( $this->fr_date( $d['dob'] ) ) . '</td>';
+			echo '<td>' . esc_html( $d['saison'] ) . '</td>';
+			echo '<td>' . ( $d['complet'] ? '✓' : '—' ) . '</td>';
+			echo '<td>' . ( $d['mineur'] ? '✓' : '' ) . '</td>';
+			echo '<td>' . ( $d['adoc'] ? '✓' : '' ) . '</td>';
+			echo '<td>' . esc_html( number_format( $d['paye'], 0, ',', ' ' ) ) . ' €</td>';
+			echo '<td>' . esc_html( $d['email'] ) . '</td>';
+			echo '<td>' . esc_html( $this->fr_phone( $d['tel'] ) ) . '</td>';
 			echo '<td><a class="button button-small" href="' . $fiche . '">Fiche</a></td>';
 			echo '</tr>';
 		}
-		echo '</tbody></table>';
-
-		if ( $q->max_num_pages > 1 ) {
-			echo '<div class="tcm-pagination">' . paginate_links( array(
-				'base' => add_query_arg( 'pg', '%#%' ), 'format' => '', 'current' => $paged, 'total' => $q->max_num_pages,
-			) ) . '</div>';
-		}
+		echo '</tbody></table></div>';
 		echo '</div>';
-		wp_reset_postdata();
 		return (string) ob_get_clean();
 	}
 }

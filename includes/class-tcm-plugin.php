@@ -45,6 +45,10 @@ final class TCM_Plugin {
 		( new TCM_Shell() )->hooks();
 		( new TCM_Chart() )->hooks();
 		( new TCM_Facture() )->hooks();
+		( new TCM_Crud() )->hooks();
+		( new TCM_Planning() )->hooks();
+		( new TCM_Normalize() )->hooks();
+		( new TCM_Inscription() )->hooks();
 		( new TCM_Import_Full() )->hooks();
 
 		// Admin. Priorité 9 : le menu parent DOIT être enregistré avant les

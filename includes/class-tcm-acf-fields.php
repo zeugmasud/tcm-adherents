@@ -88,6 +88,10 @@ class TCM_ACF_Fields {
 				array( 'key' => 'field_tcm_adh_pere_nom', 'label' => 'Nom/prénom père', 'name' => 'parent_pere_nom', 'type' => 'text' ),
 				array( 'key' => 'field_tcm_adh_pere_tel', 'label' => 'Tél père', 'name' => 'parent_pere_tel', 'type' => 'text' ),
 				array( 'key' => 'field_tcm_adh_autre', 'label' => 'Autre contact (accident)', 'name' => 'autre_contact', 'type' => 'text' ),
+					// Consentements (formulaire d'inscription).
+					array( 'key' => 'field_tcm_adh_ri', 'label' => 'Règlement intérieur accepté', 'name' => 'reglement_interieur', 'type' => 'true_false', 'ui' => 1 ),
+					array( 'key' => 'field_tcm_adh_assurance', 'label' => 'Information assurance reçue', 'name' => 'assurance_info', 'type' => 'true_false', 'ui' => 1 ),
+					array( 'key' => 'field_tcm_adh_attest', 'label' => 'Attestation demandée', 'name' => 'attestation_demandee', 'type' => 'true_false', 'ui' => 1 ),
 				array( 'key' => 'field_tcm_adh_docs', 'label' => 'Documents', 'name' => 'documents', 'type' => 'repeater', 'layout' => 'table',
 					'sub_fields' => array(
 						array( 'key' => 'field_tcm_adh_doc_label', 'label' => 'Libellé', 'name' => 'libelle', 'type' => 'text' ),
