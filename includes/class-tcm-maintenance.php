@@ -95,11 +95,12 @@ class TCM_Maintenance {
 			wp_die( 'Accès refusé.' );
 		}
 		@set_time_limit( 0 );
+		global $wpdb;
 
 		$touched = 0;
 
 		// Personnes : nom, prénom, téléphone.
-		$persons = get_posts( array( 'post_type' => TCM_CPT_PERSONNE, 'posts_per_page' => -1, 'post_status' => 'any', 'fields' => 'ids' ) );
+		$persons = get_posts( array( 'post_type' => TCM_CPT_PERSONNE, 'posts_per_page' => -1, 'post_status' => 'any', 'fields' => 'ids', 'no_found_rows' => true ) );
 		foreach ( $persons as $pid ) {
 			$nom  = (string) get_field( 'nom', $pid );
 			$pre  = (string) get_field( 'prenom', $pid );
@@ -113,9 +114,16 @@ class TCM_Maintenance {
 			$ntel = TCM_Normalize::phone( $tel );
 			if ( '' !== $tel && $ntel !== $tel ) { update_field( 'telephone', $ntel, $pid ); $dirty = true; }
 
-			// Titre de la fiche = "NOM Prénom" pour rester cohérent.
+			// Titre "NOM Prénom (jj/mm/aaaa)" cohérent avec TCM_Titles, écrit en SQL
+			// direct : pas de wp_update_post (évite révisions + hooks save_post lourds).
 			if ( $dirty ) {
-				wp_update_post( array( 'ID' => $pid, 'post_title' => trim( $nnom . ' ' . $npre ) ) );
+				$title = trim( $nnom . ' ' . $npre );
+				$d     = preg_replace( '/\D/', '', (string) get_field( 'date_naissance', $pid ) );
+				if ( 8 === strlen( $d ) ) {
+					$title .= ' (' . substr( $d, 6, 2 ) . '/' . substr( $d, 4, 2 ) . '/' . substr( $d, 0, 4 ) . ')';
+				}
+				$wpdb->update( $wpdb->posts, array( 'post_title' => $title ), array( 'ID' => $pid ) );
+				clean_post_cache( $pid );
 				$touched++;
 			}
 		}
