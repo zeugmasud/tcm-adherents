@@ -25,6 +25,7 @@ class TCM_Maintenance {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
 		add_action( 'admin_post_tcm_normalize_all', array( $this, 'handle_normalize' ) );
 		add_action( 'admin_post_tcm_adoc_backfill', array( $this, 'handle_backfill' ) );
+		add_action( 'admin_post_tcm_adoc_import', array( $this, 'handle_import' ) );
 	}
 
 	public function menu(): void {
@@ -62,25 +63,14 @@ class TCM_Maintenance {
 		submit_button( __( 'Normaliser toutes les fiches', 'tcm-adherents' ), 'primary', 'submit', false );
 		echo '</form>';
 
-		// --- Backfill ADOC -------------------------------------------------
-		$file  = TCM_PATH . self::CONTACTS_FILE;
-		$ready = file_exists( $file );
-		echo '<hr><h2>' . esc_html__( 'Backfill ADOC (email / téléphone)', 'tcm-adherents' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Complète les email et téléphones manquants des personnes à partir de l’export de contacts ADOC :', 'tcm-adherents' )
-			. ' <code>' . esc_html( self::CONTACTS_FILE ) . '</code>. ' . esc_html__( 'Les valeurs déjà renseignées ne sont jamais écrasées.', 'tcm-adherents' ) . '</p>';
-
-		if ( ! $ready ) {
-			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Fichier adoc-contacts.json absent : lancez d’abord la synchro ADOC pour le générer, puis déployez-le.', 'tcm-adherents' ) . '</p></div>';
-		} else {
-			$contacts = json_decode( (string) file_get_contents( $file ), true );
-			$n        = is_array( $contacts ) ? count( $contacts ) : 0;
-			echo '<p><em>' . esc_html( sprintf( 'Prêt : %d contacts ADOC dans le fichier.', $n ) ) . '</em></p>';
-		}
-
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" onsubmit="return confirm(\'Compléter les coordonnées vides depuis ADOC ?\');">';
-		wp_nonce_field( 'tcm_adoc_backfill' );
-		echo '<input type="hidden" name="action" value="tcm_adoc_backfill">';
-		submit_button( __( 'Lancer le backfill ADOC', 'tcm-adherents' ), 'secondary', 'submit', false, $ready ? array() : array( 'disabled' => 'disabled' ) );
+		// --- Import ADOC par upload CSV -----------------------------------
+		echo '<hr><h2>' . esc_html__( 'Import ADOC (email / téléphone) par fichier CSV', 'tcm-adherents' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Déposez l’export FFT « Détaillé » ou l’onglet adocDetail enregistré en CSV. Depuis Google Sheets : Fichier → Télécharger → CSV ; depuis Excel : Enregistrer sous → CSV. Les colonnes sont détectées automatiquement (Nom, Prénom, Email, Téléphone, idAdoc / identifiantMembre, Date de naissance). Complète les email/téléphones vides sans jamais écraser.', 'tcm-adherents' ) . '</p>';
+		echo '<form method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( 'tcm_adoc_import' );
+		echo '<input type="hidden" name="action" value="tcm_adoc_import">';
+		echo '<p><input type="file" name="adoc_csv" accept=".csv,.txt" required></p>';
+		submit_button( __( 'Importer & compléter depuis ADOC', 'tcm-adherents' ), 'primary', 'submit', false );
 		echo '</form>';
 
 		echo '</div>';
@@ -161,12 +151,58 @@ class TCM_Maintenance {
 			$this->finish( 'JSON de contacts ADOC invalide.', true );
 		}
 
-		// Index par idAdoc et par clé Nom+Prénom+DOB.
+		$rep = $this->run_backfill( $contacts );
+		$this->finish( sprintf(
+			'Backfill ADOC terminé : %d personnes appariées · %d email complétés · %d téléphones complétés.',
+			$rep['matched'], $rep['email'], $rep['tel']
+		) );
+	}
+
+	/**
+	 * Import ADOC par upload d'un CSV (export FFT « Détaillé » ou onglet adocDetail).
+	 */
+	public function handle_import(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_adoc_import' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		@set_time_limit( 0 );
+
+		if ( empty( $_FILES['adoc_csv']['tmp_name'] ) || ! is_uploaded_file( $_FILES['adoc_csv']['tmp_name'] ) ) {
+			$this->finish( 'Aucun fichier reçu.', true );
+		}
+		$raw = (string) file_get_contents( $_FILES['adoc_csv']['tmp_name'] );
+		if ( '' === trim( $raw ) ) {
+			$this->finish( 'Fichier vide.', true );
+		}
+
+		$contacts = $this->parse_csv( $raw );
+		if ( empty( $contacts ) ) {
+			$this->finish( 'Aucun contact exploitable : colonnes Nom / Email / Téléphone non détectées. Vérifiez que le fichier est bien un CSV avec une ligne d’en-tête.', true );
+		}
+
+		$rep = $this->run_backfill( $contacts );
+		$this->finish( sprintf(
+			'Import ADOC : %d contacts lus · %d personnes appariées · %d email complétés · %d téléphones complétés.',
+			count( $contacts ), $rep['matched'], $rep['email'], $rep['tel']
+		) );
+	}
+
+	/**
+	 * Cœur du backfill : complète email/tél vides des Personnes depuis une liste
+	 * de contacts (idAdoc, nom, prenom, date_naissance, email, telephone).
+	 * N'écrase jamais une valeur existante.
+	 *
+	 * @return array{matched:int,email:int,tel:int}
+	 */
+	private function run_backfill( array $contacts ): array {
 		$by_id  = array();
 		$by_key = array();
 		foreach ( $contacts as $c ) {
 			$email = isset( $c['email'] ) ? sanitize_email( (string) $c['email'] ) : '';
 			$tel   = isset( $c['telephone'] ) ? TCM_Normalize::phone( (string) $c['telephone'] ) : '';
+			if ( '' === $email && '' === $tel ) {
+				continue;
+			}
 			$entry = array( 'email' => $email, 'telephone' => $tel );
 			if ( ! empty( $c['idAdoc'] ) ) {
 				$by_id[ (string) $c['idAdoc'] ] = $entry;
@@ -181,12 +217,12 @@ class TCM_Maintenance {
 		$filled_tel   = 0;
 		$matched      = 0;
 
-		$persons = get_posts( array( 'post_type' => TCM_CPT_PERSONNE, 'posts_per_page' => -1, 'post_status' => 'any', 'fields' => 'ids' ) );
+		$persons = get_posts( array( 'post_type' => TCM_CPT_PERSONNE, 'posts_per_page' => -1, 'post_status' => 'any', 'fields' => 'ids', 'no_found_rows' => true ) );
 		foreach ( $persons as $pid ) {
 			$cur_email = (string) get_field( 'email', $pid );
 			$cur_tel   = (string) get_field( 'telephone', $pid );
 			if ( '' !== $cur_email && '' !== $cur_tel ) {
-				continue; // rien à compléter.
+				continue;
 			}
 
 			$entry = $this->contact_for_person( $pid, $by_id, $by_key );
@@ -205,10 +241,100 @@ class TCM_Maintenance {
 			}
 		}
 
-		$this->finish( sprintf(
-			'Backfill ADOC terminé : %d personnes appariées · %d email complétés · %d téléphones complétés.',
-			$matched, $filled_email, $filled_tel
-		) );
+		return array( 'matched' => $matched, 'email' => $filled_email, 'tel' => $filled_tel );
+	}
+
+	/**
+	 * Parse un CSV ADOC en liste de contacts. Détecte le délimiteur, l'encodage
+	 * (UTF-8 / Windows-1252), la ligne d'en-tête et mappe les colonnes par mots-clés.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	private function parse_csv( string $raw ): array {
+		if ( ! mb_check_encoding( $raw, 'UTF-8' ) ) {
+			$raw = mb_convert_encoding( $raw, 'UTF-8', 'Windows-1252, ISO-8859-1' );
+		}
+		$raw   = preg_replace( "/\r\n?/", "\n", $raw );
+		$lines = array_values( array_filter( explode( "\n", $raw ), static function ( $l ) { return '' !== trim( $l ); } ) );
+		if ( ! $lines ) {
+			return array();
+		}
+		$delim = ( substr_count( $lines[0], ';' ) >= substr_count( $lines[0], ',' ) ) ? ';' : ',';
+
+		// Trouver la ligne d'en-tête dans les premières lignes (l'export FFT en a 2).
+		$header_idx = -1;
+		$map        = array();
+		$max        = min( 6, count( $lines ) );
+		for ( $i = 0; $i < $max; $i++ ) {
+			$cols = str_getcsv( $lines[ $i ], $delim );
+			$m    = $this->detect_columns( $cols );
+			if ( isset( $m['nom'] ) && ( isset( $m['email'] ) || isset( $m['telephone'] ) || isset( $m['idAdoc'] ) ) ) {
+				$header_idx = $i;
+				$map        = $m;
+				break;
+			}
+		}
+		if ( $header_idx < 0 ) {
+			return array();
+		}
+
+		$out   = array();
+		$count = count( $lines );
+		for ( $i = $header_idx + 1; $i < $count; $i++ ) {
+			$cols = str_getcsv( $lines[ $i ], $delim );
+			$get  = static function ( $k ) use ( $map, $cols ) {
+				return ( isset( $map[ $k ] ) && isset( $cols[ $map[ $k ] ] ) ) ? trim( (string) $cols[ $map[ $k ] ] ) : '';
+			};
+			$nom    = $get( 'nom' );
+			$idadoc = $get( 'idAdoc' );
+			if ( '' === $nom && '' === $idadoc ) {
+				continue;
+			}
+			$out[] = array(
+				'idAdoc'         => $idadoc,
+				'nom'            => $nom,
+				'prenom'         => $get( 'prenom' ),
+				'date_naissance' => $this->to_ymd_any( $get( 'dob' ) ),
+				'email'          => $get( 'email' ),
+				'telephone'      => $get( 'telephone' ),
+			);
+		}
+		return $out;
+	}
+
+	/** Détecte les indices de colonnes par mots-clés (sans accents, sans espaces). */
+	private function detect_columns( array $headers ): array {
+		$map = array();
+		foreach ( $headers as $idx => $h ) {
+			$k = str_replace( ' ', '', TCM_Dedup::normalize( (string) $h ) );
+			if ( '' === $k ) {
+				continue;
+			}
+			if ( ! isset( $map['idAdoc'] ) && ( false !== strpos( $k, 'idadoc' ) || false !== strpos( $k, 'identifiantmembre' ) ) ) { $map['idAdoc'] = $idx; continue; }
+			if ( ! isset( $map['email'] ) && ( false !== strpos( $k, 'mail' ) || false !== strpos( $k, 'courriel' ) ) ) { $map['email'] = $idx; continue; }
+			if ( ! isset( $map['telephone'] ) && ( false !== strpos( $k, 'tel' ) || false !== strpos( $k, 'phone' ) || false !== strpos( $k, 'portable' ) || false !== strpos( $k, 'mobile' ) ) ) { $map['telephone'] = $idx; continue; }
+			if ( ! isset( $map['dob'] ) && false !== strpos( $k, 'naissance' ) ) { $map['dob'] = $idx; continue; }
+			// « prenom » avant « nom » (prenom contient nom).
+			if ( ! isset( $map['prenom'] ) && false !== strpos( $k, 'prenom' ) ) { $map['prenom'] = $idx; continue; }
+			if ( ! isset( $map['nom'] ) && false !== strpos( $k, 'nom' ) ) { $map['nom'] = $idx; continue; }
+		}
+		return $map;
+	}
+
+	/** Convertit une date (jj/mm/aaaa, aaaa-mm-jj, etc.) en Ymd ; '' si vide/invalide. */
+	private function to_ymd_any( string $v ): string {
+		$v = trim( $v );
+		if ( '' === $v ) {
+			return '';
+		}
+		if ( preg_match( '#^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$#', $v, $m ) ) {
+			return sprintf( '%04d%02d%02d', $m[3], $m[2], $m[1] );
+		}
+		if ( preg_match( '#^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$#', $v, $m ) ) {
+			return sprintf( '%04d%02d%02d', $m[1], $m[2], $m[3] );
+		}
+		$digits = preg_replace( '/\D/', '', $v );
+		return 8 === strlen( $digits ) ? $digits : '';
 	}
 
 	/**
