@@ -18,3 +18,4 @@ vendor/
 
 # Archives locales
 *.zip
+.env

@@ -1,0 +1,425 @@
+/* ==========================================================================
+   TC Mimet — Front-office / back-office CRM (Option B, rendu plugin)
+   Shell (sidebar + app), KPI, master-detail, fiche à onglets, documents.
+   Réécriture complète (l'ancien fichier était corrompu).
+   ========================================================================== */
+
+:root {
+	--tcm-bg:        #f4f6f9;
+	--tcm-surface:   #ffffff;
+	--tcm-border:    #e6e9ef;
+	--tcm-border-2:  #eef1f5;
+	--tcm-text:      #1f2733;
+	--tcm-muted:     #6b7280;
+	--tcm-faint:     #9aa2af;
+
+	--tcm-accent:    #2563eb;
+	--tcm-accent-bg: #e6efff;
+	--tcm-accent-bd: #cfe0ff;
+
+	--tcm-warn:      #b45309;
+	--tcm-warn-bg:   #fdeccf;
+	--tcm-ok:        #15803d;
+	--tcm-ok-bg:     #dcfce7;
+
+	--tcm-radius:    14px;
+	--tcm-radius-sm: 10px;
+	--tcm-shadow:    0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+	--tcm-sans:      "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	--tcm-serif:     "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	--tcm-sidebar-w: 248px;
+}
+
+/* --------------------------------------------------------------------------
+   Shell / app-shell
+   -------------------------------------------------------------------------- */
+body.tcm-crm-shell {
+	margin: 0;
+	background: var(--tcm-bg);
+	color: var(--tcm-text);
+	font-family: var(--tcm-sans);
+	font-size: 15px;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+.tcm-shell {
+	display: flex;
+	align-items: stretch;
+	min-height: 100vh;
+}
+body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
+
+/* Sidebar ------------------------------------------------------------------ */
+.tcm-sidebar {
+	flex: 0 0 var(--tcm-sidebar-w);
+	width: var(--tcm-sidebar-w);
+	background: var(--tcm-surface);
+	border-right: 1px solid var(--tcm-border);
+	padding: 22px 16px;
+	box-sizing: border-box;
+}
+
+.tcm-brand {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 4px 8px 18px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid var(--tcm-border-2);
+}
+.tcm-brand-mark {
+	width: 26px; height: 26px;
+	border-radius: 7px;
+	background: var(--tcm-accent-bg);
+	border: 2px solid var(--tcm-accent);
+	flex: 0 0 auto;
+}
+.tcm-brand-name { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
+
+.tcm-nav { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.tcm-nav-item {
+	display: flex; align-items: center; gap: 12px;
+	padding: 11px 14px;
+	border-radius: var(--tcm-radius-sm);
+	color: var(--tcm-text);
+	text-decoration: none;
+	font-weight: 500;
+	transition: background .12s ease, color .12s ease;
+}
+.tcm-nav-item:hover { background: #f5f7fa; }
+.tcm-nav-item.is-active { background: var(--tcm-accent-bg); color: var(--tcm-accent); font-weight: 600; }
+.tcm-nav-ico {
+	width: 18px; height: 18px; flex: 0 0 auto;
+	border: 2px solid currentColor; border-radius: 5px; opacity: .55;
+}
+.tcm-nav-item.is-active .tcm-nav-ico { opacity: .9; }
+
+/* App content -------------------------------------------------------------- */
+.tcm-app {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 28px 32px 48px;
+	box-sizing: border-box;
+}
+.tcm-app > h1, .tcm-app > h2 { margin-top: 0; }
+
+/* --------------------------------------------------------------------------
+   KPI ([tcm_stats])
+   -------------------------------------------------------------------------- */
+.tcm-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+	gap: 18px;
+	margin-bottom: 22px;
+}
+.tcm-stat {
+	background: var(--tcm-surface);
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius);
+	box-shadow: var(--tcm-shadow);
+	padding: 20px 22px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.tcm-stat-title { color: var(--tcm-muted); font-size: 14px; }
+.tcm-stat strong {
+	font-family: var(--tcm-serif);
+	font-size: 32px;
+	font-weight: 600;
+	line-height: 1.1;
+	color: var(--tcm-text);
+}
+.tcm-stat.is-warn strong { color: var(--tcm-warn); }
+
+/* Tuiles KPI pastel (une teinte douce par carte) */
+.tcm-stats .tcm-stat { border-color: transparent; }
+.tcm-stats .tcm-stat:nth-child(1) { background: #eef4ff; }
+.tcm-stats .tcm-stat:nth-child(1) strong { color: #3b6fd4; }
+.tcm-stats .tcm-stat:nth-child(2) { background: #eafaf0; }
+.tcm-stats .tcm-stat:nth-child(2) strong { color: #2f9e69; }
+.tcm-stats .tcm-stat:nth-child(3) { background: #fdf3e3; }
+.tcm-stats .tcm-stat:nth-child(3) strong { color: #c07a12; }
+.tcm-stats .tcm-stat:nth-child(4) { background: #f2effc; }
+.tcm-stats .tcm-stat:nth-child(4) strong { color: #6d54c8; }
+.tcm-stats .tcm-stat:nth-child(5) { background: #e6f6f5; }
+.tcm-stats .tcm-stat:nth-child(5) strong { color: #12938c; }
+
+/* --------------------------------------------------------------------------
+   Master-detail ([tcm_crm])
+   -------------------------------------------------------------------------- */
+.tcm-crm {
+	display: grid;
+	grid-template-columns: 320px 1fr;
+	gap: 18px;
+	align-items: start;
+}
+
+.tcm-crm-list {
+	background: var(--tcm-surface);
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius);
+	box-shadow: var(--tcm-shadow);
+	overflow: hidden;
+}
+.tcm-crm-bar {
+	margin: 0; padding: 12px;
+	border-bottom: 1px solid var(--tcm-border-2);
+	display: flex; flex-direction: column; gap: 8px;
+}
+.tcm-crm-bar input[type="search"],
+.tcm-crm-bar select {
+	width: 100%; box-sizing: border-box;
+	padding: 9px 12px;
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius-sm);
+	font-size: 14px; background: #fbfcfd; color: var(--tcm-text);
+}
+.tcm-crm-bar input[type="search"]:focus,
+.tcm-crm-bar select:focus { outline: none; border-color: var(--tcm-accent-bd); background: #fff; }
+
+.tcm-crm-row {
+	display: flex; align-items: center; gap: 10px;
+	padding: 13px 16px;
+	border-bottom: 1px solid var(--tcm-border-2);
+	text-decoration: none;
+	color: var(--tcm-text);
+	transition: background .12s ease;
+}
+.tcm-crm-row:last-child { border-bottom: 0; }
+.tcm-crm-row:hover { background: #f7f9fc; }
+.tcm-crm-main { flex: 1 1 auto; min-width: 0; }
+.tcm-crm-main strong { display: block; font-weight: 600; }
+.tcm-crm-sub { display: block; color: var(--tcm-muted); font-size: 13px; margin-top: 2px; }
+.tcm-crm-row.is-active { background: var(--tcm-accent-bg); box-shadow: inset 3px 0 0 var(--tcm-accent); }
+.tcm-crm-row.is-active .tcm-crm-main strong { color: var(--tcm-accent); }
+.tcm-crm-flags { flex: 0 0 auto; display: flex; gap: 6px; }
+.tcm-flag {
+	width: 20px; height: 20px; border-radius: 50%;
+	display: inline-flex; align-items: center; justify-content: center;
+}
+.tcm-flag-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-flag-adoc { background: var(--tcm-accent-bg); color: var(--tcm-accent); }
+.tcm-crm-empty { padding: 16px; color: var(--tcm-muted); }
+
+.tcm-crm-detail {
+	background: var(--tcm-surface);
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius);
+	box-shadow: var(--tcm-shadow);
+	padding: 24px 26px;
+	min-height: 200px;
+}
+.tcm-crm-detail > p { color: var(--tcm-muted); }
+
+/* --------------------------------------------------------------------------
+   Fiche ([tcm_fiche])
+   -------------------------------------------------------------------------- */
+.tcm-fiche-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	padding-bottom: 18px;
+}
+.tcm-avatar {
+	flex: 0 0 auto;
+	width: 54px; height: 54px;
+	border-radius: 50%;
+	background: var(--tcm-accent-bg);
+	color: var(--tcm-accent);
+	display: flex; align-items: center; justify-content: center;
+	font-weight: 700; font-size: 18px;
+	letter-spacing: .5px;
+}
+.tcm-fiche-ident { flex: 1 1 auto; min-width: 0; }
+.tcm-fiche-ident h2 {
+	margin: 2px 0 10px;
+	font-family: var(--tcm-serif);
+	font-size: 24px; font-weight: 600;
+}
+.tcm-badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.tcm-badge {
+	display: inline-block;
+	padding: 4px 12px;
+	border-radius: 999px;
+	font-size: 13px; font-weight: 600;
+	background: #eef1f5; color: #475467;
+}
+.tcm-badge-saison { background: var(--tcm-accent-bg); color: var(--tcm-accent); }
+.tcm-badge-warn,
+.tcm-badge.tcm-incomplet { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
+.tcm-badge-ok,
+.tcm-badge.tcm-complet { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-fiche-actions { flex: 0 0 auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Onglets ------------------------------------------------------------------ */
+.tcm-tabs-nav {
+	display: flex;
+	gap: 22px;
+	border-bottom: 2px solid var(--tcm-border);
+	margin-bottom: 20px;
+	overflow-x: auto;
+}
+.tcm-tab {
+	appearance: none;
+	background: none; border: 0;
+	padding: 10px 2px;
+	margin-bottom: -2px;
+	font-size: 15px; font-family: inherit;
+	color: var(--tcm-muted);
+	cursor: pointer;
+	white-space: nowrap;
+	border-bottom: 2px solid transparent;
+}
+.tcm-tab:hover { color: var(--tcm-text); }
+.tcm-tab.is-active { color: var(--tcm-accent); font-weight: 600; border-bottom-color: var(--tcm-accent); }
+
+.tcm-tabpanel { display: none; }
+.tcm-tabpanel.is-active { display: block; }
+
+.tcm-fiche-section h3 {
+	font-size: 15px; font-weight: 600;
+	margin: 0 0 14px;
+	display: flex; align-items: center; gap: 12px;
+}
+
+/* Coordonnées : grille 2 colonnes (label au-dessus de la valeur) */
+.tcm-coord {
+	list-style: none; margin: 0; padding: 0;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px 40px;
+}
+.tcm-coord li { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
+.tcm-coord li span { color: var(--tcm-muted); font-size: 13px; font-weight: 400; }
+.tcm-parents { margin-top: 16px; color: var(--tcm-muted); }
+
+/* Tableaux (règlements, commandes, récap) */
+.tcm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tcm-table th, .tcm-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--tcm-border-2); }
+.tcm-table thead th { color: var(--tcm-muted); font-weight: 600; font-size: 13px; }
+.tcm-table tfoot th { border-top: 2px solid var(--tcm-border); border-bottom: 0; }
+
+/* Notice (retour d'envoi d'attestation) */
+.tcm-notice { padding: 10px 14px; border-radius: var(--tcm-radius-sm); margin-bottom: 16px; font-size: 14px; }
+.tcm-notice-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+.tcm-notice-err { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
+.tcm-facture-actions { white-space: nowrap; }
+
+/* Documents : tuiles */
+.tcm-docs {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 14px;
+}
+.tcm-doc {
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	gap: 10px;
+	min-height: 96px;
+	padding: 16px;
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius-sm);
+	text-decoration: none;
+	color: var(--tcm-text);
+	background: #fcfdfe;
+	text-align: center;
+	transition: border-color .12s ease, background .12s ease;
+}
+.tcm-doc::before {
+	content: ""; width: 22px; height: 22px;
+	border: 2px solid var(--tcm-faint); border-radius: 5px;
+}
+.tcm-doc:hover { border-color: var(--tcm-accent-bd); background: #fff; }
+
+/* --------------------------------------------------------------------------
+   Récapitulatif ([tcm_recap]) — filtres + pagination
+   -------------------------------------------------------------------------- */
+.tcm-recap { background: var(--tcm-surface); border: 1px solid var(--tcm-border); border-radius: var(--tcm-radius); box-shadow: var(--tcm-shadow); padding: 22px 24px; }
+.tcm-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
+.tcm-filtres input[type="search"], .tcm-filtres select {
+	padding: 8px 12px; border: 1px solid var(--tcm-border); border-radius: var(--tcm-radius-sm); font-size: 14px; background: #fbfcfd;
+}
+.tcm-count { color: var(--tcm-muted); font-size: 14px; margin-left: auto; }
+.tcm-pagination { margin-top: 18px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tcm-pagination .page-numbers { padding: 6px 11px; border: 1px solid var(--tcm-border); border-radius: 8px; text-decoration: none; color: var(--tcm-text); }
+.tcm-pagination .page-numbers.current { background: var(--tcm-accent); color: #fff; border-color: var(--tcm-accent); }
+
+/* --------------------------------------------------------------------------
+   Boutons
+   -------------------------------------------------------------------------- */
+.tcm-app .button,
+.tcm-crm-detail .button {
+	display: inline-block;
+	padding: 8px 16px;
+	border-radius: var(--tcm-radius-sm);
+	border: 1px solid var(--tcm-border);
+	background: #fff;
+	color: var(--tcm-text);
+	font-size: 14px; font-weight: 500;
+	text-decoration: none;
+	cursor: pointer;
+	line-height: 1.4;
+	transition: background .12s ease, border-color .12s ease;
+}
+.tcm-app .button:hover { background: #f5f7fa; }
+.tcm-app .button-primary { background: var(--tcm-accent); border-color: var(--tcm-accent); color: #fff; }
+.tcm-app .button-primary:hover { background: #1d4ed8; }
+.tcm-app .button-small { padding: 4px 10px; font-size: 13px; }
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 1100px) {
+	.tcm-stats { grid-template-columns: repeat(2, 1fr); }
+	.tcm-crm { grid-template-columns: 1fr; }
+	.tcm-coord { grid-template-columns: 1fr; }
+}
+@media (max-width: 782px) {
+	.tcm-shell { flex-direction: column; }
+	.tcm-sidebar { flex-basis: auto; width: 100%; border-right: 0; border-bottom: 1px solid var(--tcm-border); }
+	.tcm-nav { flex-direction: row; flex-wrap: wrap; }
+	.tcm-app { padding: 20px 16px 40px; }
+	.tcm-stats { grid-template-columns: 1fr 1fr; }
+	.tcm-fiche-header { flex-wrap: wrap; }
+}
+
+/* --------------------------------------------------------------------------
+   Durcissement app-shell — neutralise le CSS du thème public (hello-elementor
+   + kit Elementor) qui déborde dans le back-office : les <button> des onglets
+   et les <h3> de section héritaient d'un style bouton rouge / police condensée.
+   -------------------------------------------------------------------------- */
+body.tcm-crm-shell .tcm-tabs-nav { gap: 22px !important; border-bottom: 2px solid var(--tcm-border) !important; }
+body.tcm-crm-shell .tcm-tab {
+	background: none !important;
+	color: var(--tcm-muted) !important;
+	border: 0 !important;
+	border-bottom: 2px solid transparent !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+	padding: 10px 2px !important;
+	margin: 0 0 -2px 0 !important;
+	height: auto !important; width: auto !important; min-width: 0 !important;
+	font: 600 15px/1.4 var(--tcm-sans) !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+}
+body.tcm-crm-shell .tcm-tab:hover { color: var(--tcm-text) !important; }
+body.tcm-crm-shell .tcm-tab.is-active { color: var(--tcm-accent) !important; border-bottom-color: var(--tcm-accent) !important; }
+body.tcm-crm-shell .tcm-fiche-section h3 {
+	font-family: var(--tcm-sans) !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+	font-size: 15px !important;
+	font-weight: 600 !important;
+	color: var(--tcm-text) !important;
+}
+body.tcm-crm-shell .tcm-app .button-small,
+body.tcm-crm-shell .tcm-crm-detail .button-small {
+	background: #fff !important;
+	color: var(--tcm-text) !important;
+	border: 1px solid var(--tcm-border) !important;
+	text-transform: none !important;
+	font-weight: 500 !important;
+	letter-spacing: normal !important;
+}

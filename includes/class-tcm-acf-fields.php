@@ -88,6 +88,12 @@ class TCM_ACF_Fields {
 				array( 'key' => 'field_tcm_adh_pere_nom', 'label' => 'Nom/prénom père', 'name' => 'parent_pere_nom', 'type' => 'text' ),
 				array( 'key' => 'field_tcm_adh_pere_tel', 'label' => 'Tél père', 'name' => 'parent_pere_tel', 'type' => 'text' ),
 				array( 'key' => 'field_tcm_adh_autre', 'label' => 'Autre contact (accident)', 'name' => 'autre_contact', 'type' => 'text' ),
+				array( 'key' => 'field_tcm_adh_docs', 'label' => 'Documents', 'name' => 'documents', 'type' => 'repeater', 'layout' => 'table',
+					'sub_fields' => array(
+						array( 'key' => 'field_tcm_adh_doc_label', 'label' => 'Libellé', 'name' => 'libelle', 'type' => 'text' ),
+						array( 'key' => 'field_tcm_adh_doc_file', 'label' => 'Fichier', 'name' => 'fichier', 'type' => 'file', 'return_format' => 'url' ),
+					),
+				),
 				array( 'key' => 'field_tcm_adh_comm', 'label' => 'Commentaires', 'name' => 'commentaires', 'type' => 'textarea', 'rows' => 3 ),
 			),
 		) );

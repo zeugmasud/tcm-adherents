@@ -27,7 +27,7 @@ class TCM_Frontoffice {
 
 	/** Slugs des pages front-office, protégées par TCM_Access. */
 	private function pages(): array {
-		return array( 'back-office-adherents', 'fiche', 'recap', 'fiche-adherent', 'fiche-personne', 'fiche-reglement', 'fiche-commande' );
+		return array( 'back-office-adherents', 'fiche', 'recap', 'fiche-adherent', 'fiche-personne', 'fiche-reglement', 'fiche-commande', 'tableau-de-bord' );
 	}
 
 	public function hooks(): void {
@@ -71,6 +71,9 @@ class TCM_Frontoffice {
 		}
 		$id = wp_insert_post( array( 'post_type' => $cpt, 'post_status' => 'publish', 'post_title' => ucfirst( $entity ) ) );
 		update_field( 'adherent', $adherent, $id );
+		if ( 'reglement' === $entity ) {
+			update_field( 'date_reglement', current_time( 'Ymd' ), $id );
+		}
 		$page = 'reglement' === $entity ? 'fiche-reglement' : 'fiche-commande';
 		wp_safe_redirect( add_query_arg( 'id', $id, get_permalink( get_page_by_path( $page ) ) ) );
 		exit;
