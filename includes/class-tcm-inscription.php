@@ -88,21 +88,18 @@ class TCM_Inscription {
 		$this->field( 'autre_contact', 'Autre personne à prévenir', 'text', false, 'tcm-col-2' );
 		echo '</div></fieldset>';
 
-		echo '<fieldset><legend>Coordonnées</legend><div class="tcm-insc-grid">';
-		$this->field( 'email', 'E-mail', 'email', true );
-		$this->field( 'telephone', 'Téléphone', 'tel', true );
+		// Changement de coordonnées — question posée aux renouvellements uniquement (JS).
+		echo '<fieldset class="tcm-insc-chg-wrap" data-tcm-chg-wrap hidden><legend>Coordonnées</legend>';
+		$this->field_radio( 'changement', 'Vos coordonnées ont-elles changé depuis l’an dernier ?', array( 'non' => 'Non', 'oui' => 'Oui' ), false );
+		echo '</fieldset>';
+
+		// Coordonnées — affichées pour une nouvelle inscription ou si changement déclaré (JS).
+		echo '<fieldset class="tcm-insc-coords" data-tcm-coords hidden><legend>Vos coordonnées</legend><div class="tcm-insc-grid">';
+		$this->field( 'email', 'E-mail', 'email', false );
+		$this->field( 'telephone', 'Téléphone', 'tel', false );
 		$this->field( 'adresse', 'Adresse', 'text', false, 'tcm-col-2' );
 		$this->field( 'cp', 'Code postal', 'text', false );
 		$this->field( 'ville', 'Ville', 'text', false );
-		echo '</div></fieldset>';
-
-		// Changement de coordonnées — proposé aux renouvellements uniquement (JS).
-		echo '<fieldset class="tcm-insc-chg-wrap" data-tcm-chg-wrap hidden><legend>Changement de coordonnées</legend>';
-		$this->field_radio( 'changement', 'Vos coordonnées ont-elles changé depuis l’an dernier ?', array( 'non' => 'Non', 'oui' => 'Oui' ), false );
-		echo '<div class="tcm-insc-newcoords tcm-insc-grid" data-tcm-newcoords hidden>';
-		$this->field( 'nouvel_email', 'Nouvel e-mail', 'email', false );
-		$this->field( 'nouveau_tel', 'Nouveau téléphone', 'tel', false );
-		$this->field( 'nouvelle_adresse', 'Nouvelle adresse (n°, rue, CP, ville)', 'text', false, 'tcm-col-2' );
 		echo '</div></fieldset>';
 
 		echo '<fieldset><legend>Informations complémentaires</legend>';
@@ -137,7 +134,7 @@ class TCM_Inscription {
 	var dob   = f.querySelector('[name="date_naissance"]');
 	var mineur= f.querySelector('[data-tcm-mineur]');
 	var chgW  = f.querySelector('[data-tcm-chg-wrap]');
-	var newC  = f.querySelector('[data-tcm-newcoords]');
+	var coords= f.querySelector('[data-tcm-coords]');
 
 	function ageFrom(v){
 		if(!v){ return null; }
@@ -147,22 +144,26 @@ class TCM_Inscription {
 		if(m<0 || (m===0 && t.getDate()<d.getDate())){ a--; }
 		return a;
 	}
+	function val(name){
+		var el = f.querySelector('[name="'+name+'"]:checked');
+		return el ? el.value : '';
+	}
 	function toggleMineur(){
 		var a = ageFrom(dob && dob.value);
 		if(mineur){ mineur.hidden = !(a!==null && a<18); }
 	}
-	function toggleChg(){
-		var v = f.querySelector('[name="deja_adherent"]:checked');
-		if(chgW){ chgW.hidden = !(v && v.value==='oui'); }
-	}
-	function toggleNewC(){
-		var v = f.querySelector('[name="changement"]:checked');
-		if(newC){ newC.hidden = !(v && v.value==='oui'); }
+	function apply(){
+		var deja = val('deja_adherent');
+		// Question « changement » : uniquement pour un renouvellement.
+		if(chgW){ chgW.hidden = (deja !== 'oui'); }
+		// Coordonnées : nouvelle inscription, ou renouvellement avec changement déclaré.
+		var show = (deja === 'non') || (deja === 'oui' && val('changement') === 'oui');
+		if(coords){ coords.hidden = !show; }
 	}
 	if(dob){ dob.addEventListener('change', toggleMineur); dob.addEventListener('input', toggleMineur); }
-	f.querySelectorAll('[name="deja_adherent"]').forEach(function(r){ r.addEventListener('change', function(){ toggleChg(); toggleNewC(); }); });
-	f.querySelectorAll('[name="changement"]').forEach(function(r){ r.addEventListener('change', toggleNewC); });
-	toggleMineur(); toggleChg(); toggleNewC();
+	f.querySelectorAll('[name="deja_adherent"]').forEach(function(r){ r.addEventListener('change', apply); });
+	f.querySelectorAll('[name="changement"]').forEach(function(r){ r.addEventListener('change', apply); });
+	toggleMineur(); apply();
 })();
 </script>
 		<?php
@@ -222,7 +223,15 @@ class TCM_Inscription {
 		$email  = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
 		$tel    = TCM_Normalize::phone( sanitize_text_field( wp_unslash( $_POST['telephone'] ?? '' ) ) );
 
-		if ( '' === $nom || '' === $prenom || 8 !== strlen( $dob ) || '' === $email || '' === $tel ) {
+		$deja       = sanitize_text_field( wp_unslash( $_POST['deja_adherent'] ?? '' ) );
+		$changement = ( 'oui' === sanitize_text_field( wp_unslash( $_POST['changement'] ?? '' ) ) );
+		// Le bloc coordonnées est présenté pour une nouvelle inscription ou un changement déclaré.
+		$coords_attendues = ( 'oui' !== $deja ) || $changement;
+
+		if ( '' === $nom || '' === $prenom || 8 !== strlen( $dob ) ) {
+			$this->back( $redirect, 'err', 'champs' );
+		}
+		if ( $coords_attendues && ( '' === $email || '' === $tel ) ) {
 			$this->back( $redirect, 'err', 'champs' );
 		}
 
@@ -249,17 +258,6 @@ class TCM_Inscription {
 			$this->back( $redirect, 'err', 'consent' );
 		}
 
-		// Changement de coordonnées (renouvellement) : les nouvelles valeurs priment.
-		$changement = ( 'oui' === sanitize_text_field( wp_unslash( $_POST['changement'] ?? '' ) ) );
-		if ( $changement ) {
-			$ne = sanitize_email( wp_unslash( $_POST['nouvel_email'] ?? '' ) );
-			$nt = TCM_Normalize::phone( sanitize_text_field( wp_unslash( $_POST['nouveau_tel'] ?? '' ) ) );
-			$na = sanitize_text_field( wp_unslash( $_POST['nouvelle_adresse'] ?? '' ) );
-			if ( '' !== $ne ) { $email = $ne; }
-			if ( '' !== $nt ) { $tel = $nt; }
-			if ( '' !== $na ) { $_POST['adresse'] = $na; }
-		}
-
 		$data = array(
 			'civilite'       => sanitize_text_field( wp_unslash( $_POST['civilite'] ?? '' ) ),
 			'nom'            => $nom,
@@ -277,11 +275,14 @@ class TCM_Inscription {
 			$this->back( $redirect, 'err', 'tech' );
 		}
 
-		// Renouvellement : rafraîchir les coordonnées de la personne si changement déclaré.
+		// Renouvellement : rafraîchir les coordonnées de la personne si changement déclaré
+		// (resolve_or_create ne complète que les champs vides ; ici on écrase avec les nouvelles valeurs).
 		if ( $changement ) {
-			update_field( 'email', $email, $person );
-			update_field( 'telephone', $tel, $person );
-			if ( '' !== $data['adresse'] ) { update_field( 'adresse', $data['adresse'], $person ); }
+			if ( '' !== $email ) { update_field( 'email', $email, $person ); }
+			if ( '' !== $tel )   { update_field( 'telephone', $tel, $person ); }
+			foreach ( array( 'adresse', 'cp', 'ville' ) as $f ) {
+				if ( '' !== $data[ $f ] ) { update_field( $f, $data[ $f ], $person ); }
+			}
 		}
 
 		$saison = $this->saison();

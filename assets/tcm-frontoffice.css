@@ -724,7 +724,6 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
 
 /* Blocs conditionnels : léger fond pour les distinguer */
 .tcm-insc-mineur, .tcm-insc-chg-wrap { background: var(--tcm-accent-bg, #f4f7ff); }
-.tcm-insc-newcoords { margin-top: 14px; }
 /* [hidden] doit primer sur display:grid/flex des blocs conditionnels */
 .tcm-insc [hidden] { display: none !important; }
 
