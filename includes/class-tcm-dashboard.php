@@ -495,7 +495,13 @@ class TCM_Dashboard {
 			$v = get_field( $f, $pid );
 			if ( 'date_naissance' === $f ) { $v = $this->fr_date( $v ); }
 			if ( 'telephone' === $f ) { $v = $this->fr_phone( $v ); }
-			if ( $v ) { echo '<li><span>' . esc_html( $label ) . '</span> ' . esc_html( $v ) . '</li>'; }
+			// Email et Téléphone : toujours affichés (placeholder si vide, à compléter via ADOC).
+			$always = ( 'email' === $f || 'telephone' === $f );
+			if ( $v ) {
+				echo '<li><span>' . esc_html( $label ) . '</span> ' . esc_html( $v ) . '</li>';
+			} elseif ( $always ) {
+				echo '<li class="tcm-coord-empty"><span>' . esc_html( $label ) . '</span> <em>non renseigné</em></li>';
+			}
 		}
 		echo '</ul>';
 		if ( get_field( 'mineur', $id ) ) {

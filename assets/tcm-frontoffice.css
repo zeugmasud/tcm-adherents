@@ -327,6 +327,7 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 }
 .tcm-coord li { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
 .tcm-coord li span { color: var(--tcm-muted); font-size: 13px; font-weight: 400; }
+.tcm-coord-empty em { color: var(--tcm-muted); font-style: italic; font-weight: 400; opacity: .7; }
 .tcm-parents { margin-top: 16px; color: var(--tcm-muted); }
 
 /* Tableaux (règlements, commandes, récap) */
