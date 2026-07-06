@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class TCM_Dashboard {
 
-	const CANAUX = array( 'cheque' => 'Chèque', 'especes' => 'Espèces', 'cb' => 'CB', 'helloasso' => 'HelloAsso', 'virement' => 'Virement' );
+	const CANAUX = array( 'cheque' => 'Chèque', 'especes' => 'Espèces', 'cb' => 'CB', 'helloasso' => 'HelloAsso', 'virement' => 'Virement', 'aide' => 'Aide', 'autre' => 'Autre' );
 
 	public function hooks(): void {
 		add_shortcode( 'tcm_fiche', array( $this, 'sc_fiche' ) );

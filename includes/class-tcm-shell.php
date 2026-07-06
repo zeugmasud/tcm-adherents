@@ -52,8 +52,15 @@ class TCM_Shell {
 	 */
 	public function load_template( string $template ): string {
 		if ( is_singular() ) {
-			$assigned = get_post_meta( get_queried_object_id(), '_wp_page_template', true );
-			if ( self::TEMPLATE === $assigned ) {
+			$id       = get_queried_object_id();
+			$assigned = get_post_meta( $id, '_wp_page_template', true );
+			$slug     = get_post_field( 'post_name', $id );
+
+			// Pages d'édition ACF : shell forcé par slug (évite de dépendre d'une
+			// meta _wp_page_template, pas toujours accessible en écriture).
+			$force = array( 'fiche-adherent', 'fiche-personne', 'fiche-reglement', 'fiche-commande' );
+
+			if ( self::TEMPLATE === $assigned || in_array( $slug, $force, true ) ) {
 				$custom = TCM_PATH . 'templates/tcm-crm-shell.php';
 				if ( file_exists( $custom ) ) {
 					return $custom;

@@ -56,6 +56,7 @@ require_once TCM_PATH . 'includes/class-tcm-shell.php';
 require_once TCM_PATH . 'includes/class-tcm-dashboard.php';
 require_once TCM_PATH . 'includes/class-tcm-chart.php';
 require_once TCM_PATH . 'includes/class-tcm-facture.php';
+require_once TCM_PATH . 'includes/class-tcm-import-full.php';
 require_once TCM_PATH . 'includes/class-tcm-plugin.php';
 
 // -----------------------------------------------------------------------------

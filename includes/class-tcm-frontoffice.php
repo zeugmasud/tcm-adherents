@@ -130,6 +130,7 @@ class TCM_Frontoffice {
 
 		ob_start();
 		echo '<div class="tcm-form tcm-form-' . esc_attr( $atts['entity'] ) . '">';
+		echo '<h2 class="tcm-form-title">' . esc_html( ( $new ? 'Créer' : 'Éditer' ) . ' — ' . $ent['label'] ) . '</h2>';
 		acf_form( $args );
 		echo '</div>';
 		return (string) ob_get_clean();

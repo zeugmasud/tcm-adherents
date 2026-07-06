@@ -368,6 +368,69 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 .tcm-app .button-small { padding: 4px 10px; font-size: 13px; }
 
 /* --------------------------------------------------------------------------
+   Formulaires d'édition ACF (fiche-adherent / personne / reglement / commande)
+   rendus dans l'app-shell — mise en carte cohérente avec le CRM.
+   -------------------------------------------------------------------------- */
+.tcm-app .tcm-form {
+	background: var(--tcm-surface);
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius);
+	box-shadow: var(--tcm-shadow);
+	padding: 26px 30px;
+	max-width: 780px;
+}
+.tcm-form-title { margin: 0 0 18px; font-size: 20px; font-weight: 600; color: var(--tcm-text); }
+
+.tcm-app .tcm-form .acf-fields { border: 0 !important; background: none !important; }
+.tcm-app .tcm-form .acf-fields > .acf-field {
+	padding: 14px 0 !important;
+	border-top: 1px solid var(--tcm-border-2) !important;
+	margin: 0 !important;
+}
+.tcm-app .tcm-form .acf-fields > .acf-field:first-child { border-top: 0 !important; padding-top: 0 !important; }
+.tcm-app .tcm-form .acf-label label { font-weight: 600; color: var(--tcm-text); font-size: 14px; }
+.tcm-app .tcm-form .acf-label p.description { color: var(--tcm-muted); font-weight: 400; }
+
+.tcm-app .tcm-form .acf-input input[type="text"],
+.tcm-app .tcm-form .acf-input input[type="email"],
+.tcm-app .tcm-form .acf-input input[type="number"],
+.tcm-app .tcm-form .acf-input input[type="url"],
+.tcm-app .tcm-form .acf-input input[type="password"],
+.tcm-app .tcm-form .acf-input input[type="date"],
+.tcm-app .tcm-form .acf-input textarea,
+.tcm-app .tcm-form .acf-input select,
+.tcm-app .tcm-form .acf-input .select2-container--default .select2-selection--single {
+	border: 1px solid var(--tcm-border) !important;
+	border-radius: var(--tcm-radius-sm) !important;
+	background: #fbfcfd !important;
+	font-family: var(--tcm-sans) !important;
+	font-size: 14px !important;
+	min-height: 40px;
+	color: var(--tcm-text) !important;
+	box-shadow: none !important;
+}
+.tcm-app .tcm-form .acf-input .select2-selection__rendered { line-height: 38px !important; }
+.tcm-app .tcm-form .acf-input .select2-selection__arrow { height: 38px !important; }
+.tcm-app .tcm-form .acf-input input:focus,
+.tcm-app .tcm-form .acf-input textarea:focus,
+.tcm-app .tcm-form .acf-input select:focus { border-color: var(--tcm-accent-bd) !important; background: #fff !important; outline: none; }
+
+.tcm-app .tcm-form .acf-form-submit { margin-top: 22px; }
+.tcm-app .tcm-form input[type="submit"] {
+	background: var(--tcm-accent) !important;
+	border: 1px solid var(--tcm-accent) !important;
+	color: #fff !important;
+	padding: 10px 22px !important;
+	border-radius: var(--tcm-radius-sm) !important;
+	font: 600 15px/1.4 var(--tcm-sans) !important;
+	cursor: pointer;
+	height: auto !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+}
+.tcm-app .tcm-form input[type="submit"]:hover { background: #1d4ed8 !important; }
+
+/* --------------------------------------------------------------------------
    Responsive
    -------------------------------------------------------------------------- */
 @media (max-width: 1100px) {

@@ -19,3 +19,6 @@ vendor/
 # Archives locales
 *.zip
 .env
+
+# Données d'import (RGPD : jamais dans git)
+import-data/
