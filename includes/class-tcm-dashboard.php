@@ -459,7 +459,12 @@ class TCM_Dashboard {
 		echo '<div class="tcm-fiche-actions">';
 		echo '<a class="button button-primary tcm-act" href="' . $edit_adh . '" title="Éditer l’adhésion" aria-label="Éditer l’adhésion">' . $this->icon_edit() . '<span class="tcm-act-label">Éditer l’adhésion</span></a> ';
 		echo '<a class="button tcm-act" href="' . $edit_per . '" title="Éditer les coordonnées" aria-label="Éditer les coordonnées">' . $this->icon_user() . '<span class="tcm-act-label">Éditer les coordonnées</span></a>';
-		$sc = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
+		$id_adoc = (string) get_field( 'id_adoc', $id );
+			if ( '' !== $id_adoc ) {
+				$adoc_url = 'https://adoc.app.fft.fr/adoc/membreAdhesionListe.do?method=list&identifiantMembre=' . rawurlencode( $id_adoc );
+				echo '<a class="button tcm-act" href="' . esc_url( $adoc_url ) . '" target="_blank" rel="noopener" title="Voir la fiche ADOC (FFT)" aria-label="Voir la fiche ADOC">' . $this->icon_shield() . '<span class="tcm-act-label">Fiche ADOC</span></a>';
+			}
+			$sc = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
 		if ( ! TCM_Logic::adherent_pour_saison( $pid, $sc ) ) {
 			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="tcm-reinscrire" onsubmit="return confirm(\'Réinscrire pour la saison ' . esc_js( $sc ) . ' ?\');">';
 			wp_nonce_field( 'tcm_reinscrire' );
