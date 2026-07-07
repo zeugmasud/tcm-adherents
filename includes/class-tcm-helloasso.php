@@ -50,14 +50,10 @@ class TCM_HelloAsso {
 				echo '<div class="tcm-ha-empty">Le paiement en ligne sera bientôt disponible. Contactez le club à <a href="mailto:contact@tcmimet.fr">contact@tcmimet.fr</a>.</div>';
 			}
 		} else {
-			// Code d'intégration fourni par l'admin (confiance) — on autorise l'iframe.
-			$allowed = array(
-				'iframe' => array( 'id' => true, 'src' => true, 'style' => true, 'width' => true, 'height' => true, 'frameborder' => true, 'scrolling' => true, 'allow' => true, 'allowtransparency' => true, 'referrerpolicy' => true, 'title' => true, 'name' => true, 'class' => true, 'loading' => true, 'sandbox' => true ),
-				'div'    => array( 'class' => true, 'style' => true, 'id' => true ),
-				'p'      => array( 'class' => true, 'style' => true ),
-				'a'      => array( 'href' => true, 'class' => true, 'style' => true, 'target' => true, 'rel' => true ),
-			);
-			echo '<div class="tcm-ha-embed">' . wp_kses( $embed, $allowed ) . '</div>';
+			// Contenu fourni par l'admin (confiance) : soit un shortcode
+			// [helloasso …] (plugin HelloAsso), soit un iframe brut. do_shortcode
+			// exécute le premier et laisse le second inchangé.
+			echo '<div class="tcm-ha-embed">' . do_shortcode( $embed ) . '</div>';
 		}
 		echo '</div>';
 
@@ -126,10 +122,13 @@ class TCM_HelloAsso {
 		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_helloasso_settings' ) ) {
 			wp_die( 'Accès refusé.' );
 		}
-		// Le code d'intégration peut contenir un iframe : on nettoie via kses restreint.
-		$allowed = array( 'iframe' => array( 'id' => true, 'src' => true, 'style' => true, 'width' => true, 'height' => true, 'frameborder' => true, 'scrolling' => true, 'allow' => true, 'allowtransparency' => true, 'referrerpolicy' => true, 'title' => true, 'name' => true, 'class' => true, 'loading' => true, 'sandbox' => true ), 'div' => array( 'class' => true, 'style' => true, 'id' => true ), 'p' => array( 'class' => true, 'style' => true ), 'a' => array( 'href' => true, 'class' => true, 'style' => true, 'target' => true, 'rel' => true ) );
+		// Le contenu peut être un shortcode [helloasso …] (conservé tel quel) ou un
+		// iframe brut (nettoyé via kses restreint).
+		$allowed   = array( 'iframe' => array( 'id' => true, 'src' => true, 'style' => true, 'width' => true, 'height' => true, 'frameborder' => true, 'scrolling' => true, 'allow' => true, 'allowtransparency' => true, 'referrerpolicy' => true, 'title' => true, 'name' => true, 'class' => true, 'loading' => true, 'sandbox' => true ), 'div' => array( 'class' => true, 'style' => true, 'id' => true ), 'p' => array( 'class' => true, 'style' => true ), 'a' => array( 'href' => true, 'class' => true, 'style' => true, 'target' => true, 'rel' => true ) );
+		$embed_raw = trim( (string) wp_unslash( $_POST['embed'] ?? '' ) );
+		$embed_val = ( '' !== $embed_raw && '[' === $embed_raw[0] ) ? $embed_raw : wp_kses( $embed_raw, $allowed );
 
-		update_option( 'tcm_helloasso_embed', wp_kses( (string) wp_unslash( $_POST['embed'] ?? '' ), $allowed ) );
+		update_option( 'tcm_helloasso_embed', $embed_val );
 		update_option( 'tcm_helloasso_intro', sanitize_textarea_field( wp_unslash( $_POST['intro'] ?? '' ) ) );
 		update_option( 'tcm_helloasso_slug', sanitize_title( wp_unslash( $_POST['slug'] ?? '' ) ) );
 		update_option( 'tcm_helloasso_secret', sanitize_text_field( wp_unslash( $_POST['secret'] ?? '' ) ) );
