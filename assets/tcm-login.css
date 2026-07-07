@@ -48,23 +48,19 @@
 .tcm-login-forgot:hover{ color:#E0851A; }
 
 /* --------------------------------------------------------------------------
-   Newsletter footer (formulaire Elementor « Suivez l'actu du club ») :
-   bouton au style charte + champ e-mail et bouton sur une seule ligne.
+   Newsletter footer (plugin Newsletter « tnp », « Suivez l'actu du club ») :
+   champ e-mail + bouton sur une seule ligne, bouton au style charte.
    -------------------------------------------------------------------------- */
-.elementor-location-footer .elementor-form .elementor-form-fields-wrapper{
-	display:flex !important; flex-wrap:nowrap !important; gap:10px; align-items:stretch;
-}
-.elementor-location-footer .elementor-form .elementor-field-group{ margin:0 !important; padding:0 !important; }
-.elementor-location-footer .elementor-form .elementor-field-type-email{ flex:1 1 auto; min-width:0; }
-.elementor-location-footer .elementor-form .elementor-field-type-submit{ flex:0 0 auto; }
-.elementor-location-footer .elementor-form input[type="email"]{ width:100%; box-sizing:border-box; }
-.elementor-location-footer .elementor-form .elementor-button{
+.elementor-location-footer .tnp form{ display:flex !important; flex-wrap:nowrap !important; gap:10px; align-items:stretch; margin:0; }
+.elementor-location-footer .tnp .tnp-field{ margin:0 !important; padding:0 !important; }
+.elementor-location-footer .tnp .tnp-field-email{ flex:1 1 auto; min-width:0; }
+.elementor-location-footer .tnp .tnp-field-button{ flex:0 0 auto; }
+.elementor-location-footer .tnp .tnp-email{ width:100% !important; box-sizing:border-box; height:44px; }
+.elementor-location-footer .tnp .tnp-submit{
 	background:#F4C020 !important; color:#1A1815 !important;
 	border:0 !important; border-radius:40px !important; box-shadow:none !important;
 	font-family:'Rubik',sans-serif !important; font-weight:700 !important;
 	text-transform:uppercase; letter-spacing:.5px; padding:0 26px !important;
-	height:100%; min-height:44px; white-space:nowrap; transition:background .2s ease, color .2s ease;
+	height:44px; min-height:44px; cursor:pointer; white-space:nowrap; transition:background .2s ease, color .2s ease;
 }
-.elementor-location-footer .elementor-form .elementor-button:hover{ background:#E0851A !important; color:#fff !important; }
-.elementor-location-footer .elementor-form .elementor-button svg,
-.elementor-location-footer .elementor-form .elementor-button .elementor-button-icon{ fill:currentColor; color:currentColor; }
+.elementor-location-footer .tnp .tnp-submit:hover{ background:#E0851A !important; color:#fff !important; }
