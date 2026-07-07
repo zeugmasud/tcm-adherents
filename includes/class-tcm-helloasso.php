@@ -23,6 +23,119 @@ class TCM_HelloAsso {
 
 	public function hooks(): void {
 		add_action( 'rest_api_init', array( $this, 'register_route' ) );
+		add_shortcode( 'tcm_helloasso', array( $this, 'sc_embed' ) );
+		add_action( 'admin_menu', array( $this, 'menu' ) );
+		add_action( 'admin_post_tcm_helloasso_settings', array( $this, 'save_settings' ) );
+	}
+
+	/* =====================================================================
+	 * Phase 1 — Page publique avec formulaire HelloAsso intégré
+	 * =================================================================== */
+
+	/** Shortcode [tcm_helloasso] : rend le formulaire HelloAsso intégré. */
+	public function sc_embed( $atts ): string {
+		$embed = (string) get_option( 'tcm_helloasso_embed', '' );
+		$intro = (string) get_option( 'tcm_helloasso_intro', '' );
+
+		ob_start();
+		echo '<div class="tcm-ha">';
+		if ( '' !== $intro ) {
+			echo '<div class="tcm-ha-intro">' . wp_kses_post( wpautop( $intro ) ) . '</div>';
+		}
+
+		if ( '' === trim( $embed ) ) {
+			if ( current_user_can( 'tcm_manage' ) ) {
+				echo '<div class="tcm-ha-empty">Formulaire HelloAsso non configuré. Collez votre code d’intégration dans <strong>TC Mimet → Paiement en ligne</strong>.</div>';
+			} else {
+				echo '<div class="tcm-ha-empty">Le paiement en ligne sera bientôt disponible. Contactez le club à <a href="mailto:contact@tcmimet.fr">contact@tcmimet.fr</a>.</div>';
+			}
+		} else {
+			// Code d'intégration fourni par l'admin (confiance) — on autorise l'iframe.
+			$allowed = array(
+				'iframe' => array( 'id' => true, 'src' => true, 'style' => true, 'width' => true, 'height' => true, 'frameborder' => true, 'scrolling' => true, 'allow' => true, 'allowtransparency' => true, 'referrerpolicy' => true, 'title' => true, 'name' => true, 'class' => true, 'loading' => true, 'sandbox' => true ),
+				'div'    => array( 'class' => true, 'style' => true, 'id' => true ),
+				'p'      => array( 'class' => true, 'style' => true ),
+				'a'      => array( 'href' => true, 'class' => true, 'style' => true, 'target' => true, 'rel' => true ),
+			);
+			echo '<div class="tcm-ha-embed">' . wp_kses( $embed, $allowed ) . '</div>';
+		}
+		echo '</div>';
+
+		echo '<style>'
+			. '.tcm-ha{max-width:760px;margin:0 auto;font-family:"Rubik",sans-serif;}'
+			. '.tcm-ha-intro{margin:0 0 22px;font-size:16px;line-height:1.6;color:#1A1815;}'
+			. '.tcm-ha-embed{position:relative;}'
+			. '.tcm-ha-embed iframe{width:100%!important;min-height:740px;border:0;display:block;}'
+			. '.tcm-ha-empty{background:#FBF7EF;border:1px solid #eadfc7;border-radius:12px;padding:22px 24px;color:#6b6659;}'
+			. '</style>';
+		return (string) ob_get_clean();
+	}
+
+	/* =====================================================================
+	 * Réglages (code d'intégration + secret webhook + slug)
+	 * =================================================================== */
+
+	public function menu(): void {
+		add_submenu_page(
+			'tcm-adherents',
+			__( 'Paiement en ligne', 'tcm-adherents' ),
+			__( 'Paiement en ligne', 'tcm-adherents' ),
+			'tcm_manage',
+			'tcm-paiement',
+			array( $this, 'render_settings' )
+		);
+	}
+
+	public function render_settings(): void {
+		$embed  = (string) get_option( 'tcm_helloasso_embed', '' );
+		$intro  = (string) get_option( 'tcm_helloasso_intro', '' );
+		$secret = (string) get_option( 'tcm_helloasso_secret', '' );
+		$slug   = (string) get_option( 'tcm_helloasso_slug', '' );
+		$saved  = isset( $_GET['msg'] ) && 'saved' === $_GET['msg'];
+
+		echo '<div class="wrap"><h1>' . esc_html__( 'Paiement en ligne (HelloAsso)', 'tcm-adherents' ) . '</h1>';
+		if ( $saved ) {
+			echo '<div class="notice notice-success"><p>Réglages enregistrés.</p></div>';
+		}
+		echo '<p>Collez ci-dessous le <strong>code d’intégration HelloAsso</strong> (bloc <code>&lt;iframe id="haWidget"…&gt;</code> depuis « Partager → Intégrer le formulaire »). Il s’affiche via le shortcode <code>[tcm_helloasso]</code> sur la page de règlement.</p>';
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( 'tcm_helloasso_settings' );
+		echo '<input type="hidden" name="action" value="tcm_helloasso_settings">';
+		echo '<table class="form-table"><tbody>';
+		echo '<tr><th><label for="tcm-ha-embed">Code d’intégration</label></th><td>'
+			. '<textarea id="tcm-ha-embed" name="embed" rows="6" class="large-text code">' . esc_textarea( $embed ) . '</textarea>'
+			. '<p class="description">Le code iframe fourni par HelloAsso.</p></td></tr>';
+		echo '<tr><th><label for="tcm-ha-intro">Texte d’introduction</label></th><td>'
+			. '<textarea id="tcm-ha-intro" name="intro" rows="3" class="large-text">' . esc_textarea( $intro ) . '</textarea>'
+			. '<p class="description">Optionnel, affiché au-dessus du formulaire.</p></td></tr>';
+		echo '<tr><th><label for="tcm-ha-slug">Slug organisation HelloAsso</label></th><td>'
+			. '<input type="text" id="tcm-ha-slug" name="slug" value="' . esc_attr( $slug ) . '" class="regular-text" placeholder="tennis-club-mimet">'
+			. '<p class="description">Optionnel — utile pour l’API / le webhook (phase 2).</p></td></tr>';
+		echo '<tr><th><label for="tcm-ha-secret">Secret webhook</label></th><td>'
+			. '<input type="text" id="tcm-ha-secret" name="secret" value="' . esc_attr( $secret ) . '" class="regular-text">'
+			. '<p class="description">Pour la vérification HMAC des notifications HelloAsso. URL du webhook : <code>' . esc_html( home_url( '/wp-json/' . self::ROUTE_NS . self::ROUTE_PATH ) ) . '</code></p></td></tr>';
+		echo '</tbody></table>';
+		submit_button( __( 'Enregistrer', 'tcm-adherents' ) );
+		echo '</form>';
+
+		echo '</div>';
+	}
+
+	public function save_settings(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_helloasso_settings' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		// Le code d'intégration peut contenir un iframe : on nettoie via kses restreint.
+		$allowed = array( 'iframe' => array( 'id' => true, 'src' => true, 'style' => true, 'width' => true, 'height' => true, 'frameborder' => true, 'scrolling' => true, 'allow' => true, 'allowtransparency' => true, 'referrerpolicy' => true, 'title' => true, 'name' => true, 'class' => true, 'loading' => true, 'sandbox' => true ), 'div' => array( 'class' => true, 'style' => true, 'id' => true ), 'p' => array( 'class' => true, 'style' => true ), 'a' => array( 'href' => true, 'class' => true, 'style' => true, 'target' => true, 'rel' => true ) );
+
+		update_option( 'tcm_helloasso_embed', wp_kses( (string) wp_unslash( $_POST['embed'] ?? '' ), $allowed ) );
+		update_option( 'tcm_helloasso_intro', sanitize_textarea_field( wp_unslash( $_POST['intro'] ?? '' ) ) );
+		update_option( 'tcm_helloasso_slug', sanitize_title( wp_unslash( $_POST['slug'] ?? '' ) ) );
+		update_option( 'tcm_helloasso_secret', sanitize_text_field( wp_unslash( $_POST['secret'] ?? '' ) ) );
+
+		wp_safe_redirect( admin_url( 'admin.php?page=tcm-paiement&msg=saved' ) );
+		exit;
 	}
 
 	public function register_route(): void {
