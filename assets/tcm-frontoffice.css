@@ -687,7 +687,7 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
    Formulaire d'inscription public [tcm_inscription]
    -------------------------------------------------------------------------- */
 .tcm-insc { max-width: 720px; margin: 24px auto; font-family: var(--tcm-sans); color: var(--tcm-text); }
-.tcm-insc-title { font-size: 24px; font-weight: 700; margin: 0 0 18px; }
+.tcm-insc-title { font-size: 24px; font-weight: 700; margin: 0 0 18px; padding-top: 16px; }
 .tcm-insc-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); padding: 22px 26px; border-radius: var(--tcm-radius); }
 .tcm-insc-ok h3 { margin: 0 0 8px; }
 .tcm-insc-err { background: var(--tcm-warn-bg); color: var(--tcm-warn); padding: 12px 16px; border-radius: var(--tcm-radius-sm); margin-bottom: 16px; font-weight: 600; }
@@ -737,7 +737,12 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
 /* [hidden] doit primer sur display:grid/flex des blocs conditionnels */
 .tcm-insc [hidden] { display: none !important; }
 
-@media (max-width: 600px) { .tcm-insc-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+	.tcm-insc-grid { grid-template-columns: 1fr; }
+	/* Bouton de validation centré sur mobile */
+	.tcm-insc-submit { text-align: center; }
+	.tcm-insc-title { padding-top: 20px; }
+}
 
 /* --------------------------------------------------------------------------
    Burger + barre latérale mobile — bloc scopé PRIORITAIRE : le thème public
