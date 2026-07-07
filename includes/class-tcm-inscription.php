@@ -21,10 +21,29 @@ class TCM_Inscription {
 		add_shortcode( 'tcm_inscription', array( $this, 'sc_form' ) );
 		add_action( 'admin_post_tcm_inscription', array( $this, 'handle' ) );
 		add_action( 'admin_post_nopriv_tcm_inscription', array( $this, 'handle' ) );
+		add_action( 'admin_menu', array( $this, 'menu' ) );
+		add_action( 'admin_post_tcm_insc_settings', array( $this, 'save_settings' ) );
 	}
 
 	private function saison(): string {
 		return (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
+	}
+
+	/** Réglages du formulaire (valeurs par défaut + option). */
+	private function settings(): array {
+		$defaults = array(
+			'intro'            => '',
+			'success_title'    => 'Inscription enregistrée ✔',
+			'success_msg'      => 'Merci ! Votre demande d’inscription pour la saison {saison} a bien été enregistrée. Le bureau du club reviendra vers vous pour finaliser le dossier.',
+			'submit_label'     => 'Envoyer mon inscription',
+			'ri_url'           => home_url( '/reglement-interieur/' ),
+			'show_attestation' => 1,
+			'show_changement'  => 1,
+			'require_address'  => 0,
+			'require_photo'    => 1,
+		);
+		$saved = get_option( 'tcm_insc_settings', array() );
+		return array_merge( $defaults, is_array( $saved ) ? $saved : array() );
 	}
 
 	/* =====================================================================
@@ -33,15 +52,16 @@ class TCM_Inscription {
 
 	public function sc_form( $atts ): string {
 		$saison = $this->saison();
+		$s      = $this->settings();
 
 		ob_start();
 		echo '<div class="tcm-insc">';
 
 		$msg = isset( $_GET['insc'] ) ? sanitize_key( wp_unslash( $_GET['insc'] ) ) : '';
 		if ( 'ok' === $msg ) {
-			echo '<div class="tcm-insc-ok"><h3>Inscription enregistrée ✔</h3>'
-				. '<p>Merci ! Votre demande d’inscription pour la saison ' . esc_html( $saison ) . ' a bien été enregistrée. '
-				. 'Le bureau du club reviendra vers vous pour finaliser le dossier.</p></div>';
+			$body = str_replace( '{saison}', $saison, (string) $s['success_msg'] );
+			echo '<div class="tcm-insc-ok"><h3>' . esc_html( $s['success_title'] ) . '</h3>'
+				. '<p>' . esc_html( $body ) . '</p></div>';
 			echo '</div>';
 			return (string) ob_get_clean();
 		}
@@ -59,6 +79,9 @@ class TCM_Inscription {
 		}
 
 		echo '<h2 class="tcm-insc-title">Inscription — saison ' . esc_html( $saison ) . '</h2>';
+		if ( '' !== trim( (string) $s['intro'] ) ) {
+			echo '<div class="tcm-insc-intro">' . wp_kses_post( wpautop( $s['intro'] ) ) . '</div>';
+		}
 
 		echo '<form class="tcm-insc-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'tcm_inscription', 'tcm_insc_nonce' );
@@ -89,9 +112,11 @@ class TCM_Inscription {
 		echo '</div></fieldset>';
 
 		// Changement de coordonnées — question posée aux renouvellements uniquement (JS).
-		echo '<fieldset class="tcm-insc-chg-wrap" data-tcm-chg-wrap hidden><legend>Coordonnées</legend>';
-		$this->field_radio( 'changement', 'Vos coordonnées ont-elles changé depuis l’an dernier ?', array( 'non' => 'Non', 'oui' => 'Oui' ), false );
-		echo '</fieldset>';
+		if ( $s['show_changement'] ) {
+			echo '<fieldset class="tcm-insc-chg-wrap" data-tcm-chg-wrap hidden><legend>Coordonnées</legend>';
+			$this->field_radio( 'changement', 'Vos coordonnées ont-elles changé depuis l’an dernier ?', array( 'non' => 'Non', 'oui' => 'Oui' ), false );
+			echo '</fieldset>';
+		}
 
 		// Coordonnées — affichées pour une nouvelle inscription ou si changement déclaré (JS).
 		echo '<fieldset class="tcm-insc-coords" data-tcm-coords hidden><legend>Vos coordonnées</legend><div class="tcm-insc-grid">';
@@ -105,17 +130,19 @@ class TCM_Inscription {
 		echo '<fieldset><legend>Informations complémentaires</legend>';
 		echo '<div class="tcm-insc-field tcm-col-2"><label for="tcm-insc-comm">Commentaires</label>';
 		echo '<textarea id="tcm-insc-comm" name="commentaires" rows="3"></textarea></div>';
-		$this->field_radio( 'attestation_demandee', 'Désirez-vous une attestation de paiement ?', array( 'non' => 'Non', 'oui' => 'Oui' ), false );
+		if ( $s['show_attestation'] ) {
+			$this->field_radio( 'attestation_demandee', 'Désirez-vous une attestation de paiement ?', array( 'non' => 'Non', 'oui' => 'Oui' ), false );
+		}
 		echo '</fieldset>';
 
 		// Consentements.
 		echo '<fieldset><legend>Autorisations</legend>';
-		$this->field_consent( 'reglement_interieur', 'Je reconnais avoir pris connaissance du <a href="' . esc_url( home_url( '/reglement-interieur/' ) ) . '" target="_blank" rel="noopener">Règlement Intérieur</a> affiché au club et m’engage à le respecter.', true );
+		$this->field_consent( 'reglement_interieur', 'Je reconnais avoir pris connaissance du <a href="' . esc_url( $s['ri_url'] ) . '" target="_blank" rel="noopener">Règlement Intérieur</a> affiché au club et m’engage à le respecter.', true );
 		$this->field_consent( 'assurance_info', 'Je reconnais être informé(e) de l’intérêt de souscrire à un contrat de dommages corporels (cf. information FFT).', true );
-		$this->field_radio( 'autorisation_photo', 'Droit à l’image : j’autorise le TC Mimet à utiliser les photos prises de moi-même ou de mon enfant pour communiquer (site, presse locale), à titre gracieux.', array( 'oui' => 'Oui, j’autorise', 'non' => 'Non' ), true );
+		$this->field_radio( 'autorisation_photo', 'Droit à l’image : j’autorise le TC Mimet à utiliser les photos prises de moi-même ou de mon enfant pour communiquer (site, presse locale), à titre gracieux.', array( 'oui' => 'Oui, j’autorise', 'non' => 'Non' ), (bool) $s['require_photo'] );
 		echo '</fieldset>';
 
-		echo '<div class="tcm-insc-submit"><button type="submit" class="tcm-insc-btn">Envoyer mon inscription</button></div>';
+		echo '<div class="tcm-insc-submit"><button type="submit" class="tcm-insc-btn">' . esc_html( $s['submit_label'] ) . '</button></div>';
 		echo '</form>';
 
 		$this->inline_script();
@@ -223,6 +250,7 @@ class TCM_Inscription {
 		$email  = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
 		$tel    = TCM_Normalize::phone( sanitize_text_field( wp_unslash( $_POST['telephone'] ?? '' ) ) );
 
+		$s          = $this->settings();
 		$deja       = sanitize_text_field( wp_unslash( $_POST['deja_adherent'] ?? '' ) );
 		$changement = ( 'oui' === sanitize_text_field( wp_unslash( $_POST['changement'] ?? '' ) ) );
 		// Le bloc coordonnées est présenté pour une nouvelle inscription ou un changement déclaré.
@@ -232,6 +260,13 @@ class TCM_Inscription {
 			$this->back( $redirect, 'err', 'champs' );
 		}
 		if ( $coords_attendues && ( '' === $email || '' === $tel ) ) {
+			$this->back( $redirect, 'err', 'champs' );
+		}
+		// Adresse obligatoire (option) quand le bloc coordonnées est demandé.
+		if ( $coords_attendues && $s['require_address'] && (
+			'' === sanitize_text_field( wp_unslash( $_POST['adresse'] ?? '' ) )
+			|| '' === sanitize_text_field( wp_unslash( $_POST['cp'] ?? '' ) )
+			|| '' === sanitize_text_field( wp_unslash( $_POST['ville'] ?? '' ) ) ) ) {
 			$this->back( $redirect, 'err', 'champs' );
 		}
 
@@ -254,7 +289,8 @@ class TCM_Inscription {
 		$ri        = ! empty( $_POST['reglement_interieur'] );
 		$assurance = ! empty( $_POST['assurance_info'] );
 		$photo_raw = sanitize_text_field( wp_unslash( $_POST['autorisation_photo'] ?? '' ) );
-		if ( ! $ri || ! $assurance || ( 'oui' !== $photo_raw && 'non' !== $photo_raw ) ) {
+		$photo_ok  = ! (bool) $s['require_photo'] || 'oui' === $photo_raw || 'non' === $photo_raw;
+		if ( ! $ri || ! $assurance || ! $photo_ok ) {
 			$this->back( $redirect, 'err', 'consent' );
 		}
 
@@ -358,6 +394,85 @@ class TCM_Inscription {
 			$args['e'] = $code;
 		}
 		wp_safe_redirect( add_query_arg( $args, $redirect ) );
+		exit;
+	}
+
+	/* =====================================================================
+	 * Réglages (back-office)
+	 * =================================================================== */
+
+	public function menu(): void {
+		add_submenu_page(
+			'tcm-adherents',
+			__( 'Formulaire d’adhésion', 'tcm-adherents' ),
+			__( 'Formulaire d’adhésion', 'tcm-adherents' ),
+			'tcm_manage',
+			'tcm-form-adhesion',
+			array( $this, 'render_settings' )
+		);
+	}
+
+	public function render_settings(): void {
+		$s      = $this->settings();
+		$saison = $this->saison();
+		$saved  = isset( $_GET['msg'] ) && 'saved' === $_GET['msg'];
+
+		echo '<div class="wrap"><h1>' . esc_html__( 'Formulaire d’adhésion — réglages', 'tcm-adherents' ) . '</h1>';
+		if ( $saved ) {
+			echo '<div class="notice notice-success"><p>Réglages enregistrés.</p></div>';
+		}
+		echo '<p>Pilote le formulaire public <code>[tcm_inscription]</code> (page « Inscription »). '
+			. 'La saison provient du réglage « Saison courante » (actuellement <strong>' . esc_html( $saison ) . '</strong>, modifiable dans TC Mimet → Réglages).</p>';
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( 'tcm_insc_settings' );
+		echo '<input type="hidden" name="action" value="tcm_insc_settings">';
+		echo '<table class="form-table"><tbody>';
+
+		echo '<tr><th><label for="ti-intro">Texte d’introduction</label></th><td>'
+			. '<textarea id="ti-intro" name="intro" rows="3" class="large-text">' . esc_textarea( $s['intro'] ) . '</textarea>'
+			. '<p class="description">Affiché sous le titre, au-dessus du formulaire. Optionnel.</p></td></tr>';
+
+		echo '<tr><th><label for="ti-submit">Libellé du bouton</label></th><td>'
+			. '<input type="text" id="ti-submit" name="submit_label" value="' . esc_attr( $s['submit_label'] ) . '" class="regular-text"></td></tr>';
+
+		echo '<tr><th><label for="ti-ri">URL du Règlement Intérieur</label></th><td>'
+			. '<input type="url" id="ti-ri" name="ri_url" value="' . esc_attr( $s['ri_url'] ) . '" class="regular-text"></td></tr>';
+
+		echo '<tr><th>Champs affichés / obligatoires</th><td>';
+		echo '<label><input type="checkbox" name="show_attestation" value="1" ' . checked( $s['show_attestation'], 1, false ) . '> Afficher la question « Désirez-vous une attestation ? »</label><br>';
+		echo '<label><input type="checkbox" name="show_changement" value="1" ' . checked( $s['show_changement'], 1, false ) . '> Proposer le bloc « changement de coordonnées » aux renouvellements</label><br>';
+		echo '<label><input type="checkbox" name="require_address" value="1" ' . checked( $s['require_address'], 1, false ) . '> Rendre l’adresse (rue, CP, ville) obligatoire</label><br>';
+		echo '<label><input type="checkbox" name="require_photo" value="1" ' . checked( $s['require_photo'], 1, false ) . '> Rendre la réponse « droit à l’image » obligatoire</label>';
+		echo '</td></tr>';
+
+		echo '<tr><th><label for="ti-st">Titre du message de confirmation</label></th><td>'
+			. '<input type="text" id="ti-st" name="success_title" value="' . esc_attr( $s['success_title'] ) . '" class="regular-text"></td></tr>';
+		echo '<tr><th><label for="ti-sm">Message de confirmation</label></th><td>'
+			. '<textarea id="ti-sm" name="success_msg" rows="3" class="large-text">' . esc_textarea( $s['success_msg'] ) . '</textarea>'
+			. '<p class="description">Affiché après l’envoi. <code>{saison}</code> est remplacé par la saison.</p></td></tr>';
+
+		echo '</tbody></table>';
+		submit_button( __( 'Enregistrer', 'tcm-adherents' ) );
+		echo '</form></div>';
+	}
+
+	public function save_settings(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_insc_settings' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		update_option( 'tcm_insc_settings', array(
+			'intro'            => sanitize_textarea_field( wp_unslash( $_POST['intro'] ?? '' ) ),
+			'submit_label'     => sanitize_text_field( wp_unslash( $_POST['submit_label'] ?? '' ) ) ?: 'Envoyer mon inscription',
+			'ri_url'           => esc_url_raw( wp_unslash( $_POST['ri_url'] ?? '' ) ),
+			'show_attestation' => empty( $_POST['show_attestation'] ) ? 0 : 1,
+			'show_changement'  => empty( $_POST['show_changement'] ) ? 0 : 1,
+			'require_address'  => empty( $_POST['require_address'] ) ? 0 : 1,
+			'require_photo'    => empty( $_POST['require_photo'] ) ? 0 : 1,
+			'success_title'    => sanitize_text_field( wp_unslash( $_POST['success_title'] ?? '' ) ),
+			'success_msg'      => sanitize_textarea_field( wp_unslash( $_POST['success_msg'] ?? '' ) ),
+		) );
+		wp_safe_redirect( admin_url( 'admin.php?page=tcm-form-adhesion&msg=saved' ) );
 		exit;
 	}
 }
