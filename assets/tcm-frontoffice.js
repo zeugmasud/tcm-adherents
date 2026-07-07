@@ -67,3 +67,39 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 });
+
+// Calculette (section Commandes).
+document.addEventListener('DOMContentLoaded', function () {
+  var back = document.getElementById('tcm-calc');
+  if (!back) return;
+  var exprEl = back.querySelector('.tcm-calc-expr');
+  var valEl = back.querySelector('.tcm-calc-val');
+  var s = '';
+  function fmt(x) { if (!isFinite(x)) return 'Erreur'; return (Math.round(x * 1e6) / 1e6).toString().replace('.', ','); }
+  function evalExpr(str) { if (!/^[-0-9.+*/% ()]+$/.test(str)) throw 0; return Function('return (' + str + ')')(); }
+  function current() { try { if (!s) return '0'; var v = evalExpr(s); return isFinite(v) ? fmt(v) : '0'; } catch (e) { return valEl.textContent || '0'; } }
+  function render() {
+    exprEl.textContent = s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/\./g, ',');
+    valEl.textContent = current();
+  }
+  function press(k) {
+    if (k === 'C') { s = ''; }
+    else if (k === 'back') { s = s.slice(0, -1); }
+    else if (k === '=') {
+      try { var v = evalExpr(s); if (!isFinite(v)) throw 0; s = fmt(v).replace(',', '.'); }
+      catch (e) { valEl.textContent = 'Erreur'; return; }
+    } else { s += k; }
+    render();
+  }
+  back.querySelectorAll('.tcm-calc-keys button').forEach(function (b) {
+    b.addEventListener('click', function () { press(b.getAttribute('data-k')); });
+  });
+  function open() { back.classList.add('is-open'); back.setAttribute('aria-hidden', 'false'); s = ''; render(); }
+  function close() { back.classList.remove('is-open'); back.setAttribute('aria-hidden', 'true'); }
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.tcm-calc-open')) { open(); }
+    else if (e.target === back || e.target.closest('.tcm-calc-close')) { close(); }
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  render();
+});

@@ -219,7 +219,10 @@ class TCM_Crud {
 
 	public function commandes_section( int $adh, array $cmds, string $fiche_url, int $edit_id, string $saison_defaut ): string {
 		ob_start();
-		echo '<div class="tcm-fiche-section"><h3>Commandes</h3>';
+		echo '<div class="tcm-fiche-section"><h3>Commandes'
+			. ' <button type="button" class="tcm-calc-open" title="Calculette" aria-label="Ouvrir la calculette">'
+			. '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg>'
+			. '</button></h3>';
 		echo '<div class="tcm-rows">';
 
 		foreach ( $cmds as $c ) {
@@ -255,6 +258,33 @@ class TCM_Crud {
 			echo '</div>';
 		}
 		echo '</div>';
+
+		// Calculette (aide au calcul), ouverte par le picto de l'en-tête.
+		echo $this->calc_modal();
+
+		echo '</div>';
+		return (string) ob_get_clean();
+	}
+
+	/** Modale de calculette (rendue une fois dans la section Commandes). */
+	private function calc_modal(): string {
+		$keys = array(
+			array( 'C', 'C', 'fn' ), array( '⌫', 'back', 'fn' ), array( '%', '%', 'op' ), array( '÷', '/', 'op' ),
+			array( '7', '7', '' ), array( '8', '8', '' ), array( '9', '9', '' ), array( '×', '*', 'op' ),
+			array( '4', '4', '' ), array( '5', '5', '' ), array( '6', '6', '' ), array( '−', '-', 'op' ),
+			array( '1', '1', '' ), array( '2', '2', '' ), array( '3', '3', '' ), array( '+', '+', 'op' ),
+			array( '0', '0', 'span2' ), array( ',', '.', '' ), array( '=', '=', 'eq' ),
+		);
+		ob_start();
+		echo '<div class="tcm-calc-backdrop" id="tcm-calc" aria-hidden="true">';
+		echo '<div class="tcm-calc" role="dialog" aria-label="Calculette">';
+		echo '<div class="tcm-calc-head"><strong>Calculette</strong><button type="button" class="tcm-calc-close" aria-label="Fermer">&times;</button></div>';
+		echo '<div class="tcm-calc-screen"><div class="tcm-calc-expr"></div><div class="tcm-calc-val">0</div></div>';
+		echo '<div class="tcm-calc-keys">';
+		foreach ( $keys as $k ) {
+			echo '<button type="button" class="' . esc_attr( $k[2] ) . '" data-k="' . esc_attr( $k[1] ) . '">' . esc_html( $k[0] ) . '</button>';
+		}
+		echo '</div></div></div>';
 		return (string) ob_get_clean();
 	}
 

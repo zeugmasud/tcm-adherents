@@ -600,12 +600,8 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 	.tcm-sidebar { flex-basis: auto; width: 100%; border-right: 0; border-bottom: 1px solid var(--tcm-border); position: static; height: auto; overflow: visible; }
 	.tcm-sidebar-top { display: flex; align-items: center; justify-content: space-between; }
 	.tcm-sidebar-top .tcm-brand { padding-bottom: 4px; margin-bottom: 0; border-bottom: 0; }
-	/* Burger façon home (toggle Elementor) : hamburger noir sur fond blanc, coins 3px */
-	.tcm-burger { display: flex; flex-direction: column; justify-content: center; gap: 4px; width: 36px; height: 36px; background: #fff; border: 0; border-radius: 3px; padding: 7px; cursor: pointer; }
-	.tcm-burger span { display: block; width: 22px; height: 2px; background: #1a1815; border-radius: 2px; transition: transform .25s ease, opacity .2s ease; }
-	.tcm-sidebar.is-open .tcm-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-	.tcm-sidebar.is-open .tcm-burger span:nth-child(2) { opacity: 0; }
-	.tcm-sidebar.is-open .tcm-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+	/* Styles du burger : voir le bloc scopé « body.tcm-crm-shell » en fin de fichier
+	   (nécessaire pour primer sur les styles <button> du thème public). */
 	.tcm-sidebar-body { display: none; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--tcm-border-2); }
 	.tcm-sidebar.is-open .tcm-sidebar-body { display: flex; }
 	.tcm-app { padding: 20px 16px 40px; }
@@ -734,3 +730,56 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
 .tcm-insc [hidden] { display: none !important; }
 
 @media (max-width: 600px) { .tcm-insc-grid { grid-template-columns: 1fr; } }
+
+/* --------------------------------------------------------------------------
+   Burger + barre latérale mobile — bloc scopé PRIORITAIRE : le thème public
+   colore les <button> (fond/bordure rose) et reset les <span>. On force ici
+   le rendu « hamburger noir sur fond blanc » facon home, et on masque le
+   burger hors mobile (sinon sa bordure rose apparaît dans la sidebar desktop).
+   -------------------------------------------------------------------------- */
+body.tcm-crm-shell .tcm-burger{
+	display:none !important; box-sizing:border-box; flex-direction:column;
+	align-items:center; justify-content:center; gap:4px; width:36px; height:36px;
+	padding:7px; background:#fff !important; border:0 !important; border-radius:3px !important;
+	box-shadow:none !important; cursor:pointer; -webkit-appearance:none; appearance:none;
+}
+body.tcm-crm-shell .tcm-burger span{
+	display:block !important; width:22px !important; height:2px !important; min-height:2px;
+	background:#1a1815 !important; border-radius:2px !important; opacity:1 !important;
+	transition:transform .25s ease, opacity .2s ease;
+}
+body.tcm-crm-shell .tcm-sidebar.is-open .tcm-burger span:nth-child(1){ transform:translateY(6px) rotate(45deg) !important; }
+body.tcm-crm-shell .tcm-sidebar.is-open .tcm-burger span:nth-child(2){ opacity:0 !important; }
+body.tcm-crm-shell .tcm-sidebar.is-open .tcm-burger span:nth-child(3){ transform:translateY(-6px) rotate(-45deg) !important; }
+@media (max-width:782px){
+	body.tcm-crm-shell .tcm-burger{ display:flex !important; }
+	/* Barre logo+burger collée en haut, hauteur réduite */
+	body.tcm-crm-shell .tcm-sidebar{ position:sticky !important; top:0; z-index:30; background:var(--tcm-surface); padding-top:8px !important; padding-bottom:8px !important; }
+	body.tcm-crm-shell .tcm-brand{ padding-top:0 !important; padding-bottom:0 !important; }
+	body.tcm-crm-shell .tcm-brand-logo{ height:40px !important; }
+}
+
+/* --------------------------------------------------------------------------
+   Calculette (section Commandes) — aide au calcul.
+   -------------------------------------------------------------------------- */
+body.tcm-crm-shell .tcm-calc-open{ display:inline-flex !important; align-items:center; justify-content:center; width:34px; height:34px;
+	border:1px solid var(--tcm-border) !important; border-radius:var(--tcm-radius-sm) !important; background:#fff !important; color:var(--tcm-text) !important;
+	box-shadow:none !important; cursor:pointer; margin-left:10px; vertical-align:middle; padding:0 !important; }
+body.tcm-crm-shell .tcm-calc-open:hover{ background:var(--tcm-accent-bg) !important; color:var(--tcm-accent) !important; border-color:var(--tcm-accent-bd) !important; }
+.tcm-calc-backdrop{ position:fixed; inset:0; background:rgba(26,24,21,.45); display:none; align-items:center; justify-content:center; z-index:9999; }
+.tcm-calc-backdrop.is-open{ display:flex; }
+.tcm-calc{ width:280px; max-width:92vw; background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden; font-family:var(--tcm-sans); }
+.tcm-calc-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--tcm-text); color:#fff; }
+.tcm-calc-head strong{ font-weight:600; font-size:15px; }
+body.tcm-crm-shell .tcm-calc-close{ background:none !important; border:0 !important; box-shadow:none !important; color:#fff !important; font-size:22px; line-height:1; cursor:pointer; padding:0 4px !important; width:auto !important; height:auto !important; }
+.tcm-calc-screen{ padding:16px; text-align:right; }
+.tcm-calc-expr{ min-height:18px; font-size:13px; color:var(--tcm-muted); word-break:break-all; }
+.tcm-calc-val{ font-size:32px; font-weight:600; color:var(--tcm-text); word-break:break-all; }
+.tcm-calc-keys{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--tcm-border); }
+body.tcm-crm-shell .tcm-calc-keys button{ border:0 !important; background:#fff !important; padding:16px 0 !important; font-size:18px !important; font-weight:500 !important; color:var(--tcm-text) !important; cursor:pointer; font-family:var(--tcm-sans) !important; border-radius:0 !important; box-shadow:none !important; width:auto !important; height:auto !important; text-transform:none !important; letter-spacing:normal !important; }
+body.tcm-crm-shell .tcm-calc-keys button:hover{ background:#f5f7fa !important; }
+body.tcm-crm-shell .tcm-calc-keys .op{ color:var(--tcm-accent) !important; font-weight:700 !important; }
+body.tcm-crm-shell .tcm-calc-keys .fn{ color:var(--tcm-muted) !important; }
+body.tcm-crm-shell .tcm-calc-keys .eq{ background:var(--tcm-accent) !important; color:#fff !important; }
+body.tcm-crm-shell .tcm-calc-keys .eq:hover{ background:#1d4ed8 !important; }
+.tcm-calc-keys .span2{ grid-column:span 2; }
