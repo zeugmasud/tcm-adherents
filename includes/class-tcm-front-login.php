@@ -70,7 +70,7 @@ class TCM_Front_Login {
 			</label>
 			<label class="tcm-login-remember"><input type="checkbox" name="remember"> Se souvenir de moi</label>
 			<div class="tcm-login-err" role="alert"></div>
-			<button type="submit" class="tcm-cta tcm-login-submit">Se connecter</button>
+			<button type="submit" class="tcm-login-submit">Se connecter</button>
 			<a class="tcm-login-forgot" href="<?php echo esc_url( wp_lostpassword_url() ); ?>">Mot de passe oublié ?</a>
 		</form>
 	</div>

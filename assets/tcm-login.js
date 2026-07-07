@@ -13,26 +13,9 @@
 	// wp_localize_script sérialise en chaîne : "0" (déconnecté) est truthy en JS.
 	var isLogged = (C.loggedIn === true || C.loggedIn === 1 || C.loggedIn === '1');
 
-	function makeCta() {
-		var li = document.createElement('li');
-		li.className = 'menu-item tcm-cta-item';
-		var a = document.createElement('a');
-		a.href = dash;
-		a.className = 'tcm-cta';
-		a.textContent = C.label || 'Espace adhérent';
-		li.appendChild(a);
-		return li;
-	}
-
-	// 1. Injecter le CTA dans chaque menu principal (desktop + dropdown mobile).
-	function injectCta() {
-		var menus = document.querySelectorAll('.elementor-nav-menu, ul.menu, #primary-menu, .main-navigation ul');
-		menus.forEach(function (ul) {
-			if (ul.querySelector('.tcm-cta-item')) { return; }
-			ul.appendChild(makeCta());
-		});
-	}
-	injectCta();
+	// Le bouton « Connexion » est géré directement dans le menu du site.
+	// Ici on se contente d'intercepter les clics vers le tableau de bord pour
+	// ouvrir la modale de connexion quand le visiteur n'est pas connecté.
 
 	// Modale
 	var modal = document.getElementById('tcm-login-modal');
@@ -49,7 +32,7 @@
 
 	// 2. Clic sur le CTA (ou tout lien vers le tableau de bord).
 	document.addEventListener('click', function (e) {
-		var a = e.target.closest('.tcm-cta, a[href*="/tableau-de-bord"]');
+		var a = e.target.closest('a[href*="/tableau-de-bord"]');
 		if (!a || a.closest('.tcm-login-box')) { return; }
 		if (isLogged) { return; } // connecté : navigation normale vers le dashboard
 		e.preventDefault();
