@@ -51,7 +51,7 @@
    Newsletter footer (plugin Newsletter « tnp », « Suivez l'actu du club ») :
    champ e-mail + bouton sur une seule ligne, bouton au style charte.
    -------------------------------------------------------------------------- */
-.elementor-location-footer .tnp form{ display:flex !important; flex-wrap:nowrap !important; gap:10px; align-items:stretch; margin:0; }
+.elementor-location-footer .tnp form{ display:flex !important; flex-wrap:nowrap !important; gap:10px; align-items:flex-end; margin:0; }
 .elementor-location-footer .tnp .tnp-field{ margin:0 !important; padding:0 !important; }
 .elementor-location-footer .tnp .tnp-field-email{ flex:1 1 auto; min-width:0; }
 .elementor-location-footer .tnp .tnp-field-button{ flex:0 0 auto; }
@@ -64,3 +64,9 @@
 	height:44px; min-height:44px; cursor:pointer; white-space:nowrap; transition:background .2s ease, color .2s ease;
 }
 .elementor-location-footer .tnp .tnp-submit:hover{ background:#E0851A !important; color:#fff !important; }
+/* Mobile : champ e-mail et bouton sur 2 lignes (chacun pleine largeur) */
+@media (max-width:767px){
+	.elementor-location-footer .tnp form{ flex-direction:column !important; align-items:stretch !important; gap:12px; }
+	.elementor-location-footer .tnp .tnp-field-button,
+	.elementor-location-footer .tnp .tnp-submit{ width:100% !important; }
+}
