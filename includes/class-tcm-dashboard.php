@@ -463,6 +463,8 @@ class TCM_Dashboard {
 			if ( '' !== $id_adoc ) {
 				$adoc_url = 'https://adoc.app.fft.fr/adoc/membreAdhesionListe.do?method=list&identifiantMembre=' . rawurlencode( $id_adoc );
 				echo '<a class="button tcm-act" href="' . esc_url( $adoc_url ) . '" target="_blank" rel="noopener" title="Voir la fiche ADOC (FFT)" aria-label="Voir la fiche ADOC">' . $this->icon_shield() . '<span class="tcm-act-label">Fiche ADOC</span></a>';
+			} else {
+				echo '<a class="button tcm-act" href="https://adoc.app.fft.fr/adoc/membreCreation.do?method=read" target="_blank" rel="noopener" title="Créer la fiche ADOC (FFT)" aria-label="Créer la fiche ADOC">' . $this->icon_shield() . '<span class="tcm-act-label">ADOC</span></a>';
 			}
 			$sc = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
 		if ( ! TCM_Logic::adherent_pour_saison( $pid, $sc ) ) {

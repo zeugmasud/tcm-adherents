@@ -80,6 +80,7 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 	flex: 0 0 auto;
 }
 .tcm-brand-name { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
+.tcm-brand-logo { height: 52px; width: auto; max-width: 100%; display: block; }
 
 .tcm-nav { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
 .tcm-nav-item {
@@ -599,8 +600,12 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 	.tcm-sidebar { flex-basis: auto; width: 100%; border-right: 0; border-bottom: 1px solid var(--tcm-border); position: static; height: auto; overflow: visible; }
 	.tcm-sidebar-top { display: flex; align-items: center; justify-content: space-between; }
 	.tcm-sidebar-top .tcm-brand { padding-bottom: 4px; margin-bottom: 0; border-bottom: 0; }
-	.tcm-burger { display: flex; flex-direction: column; gap: 4px; background: none; border: 0; padding: 8px; cursor: pointer; }
-	.tcm-burger span { display: block; width: 22px; height: 2px; background: var(--tcm-text); border-radius: 2px; }
+	/* Burger façon home (toggle Elementor) : hamburger noir sur fond blanc, coins 3px */
+	.tcm-burger { display: flex; flex-direction: column; justify-content: center; gap: 4px; width: 36px; height: 36px; background: #fff; border: 0; border-radius: 3px; padding: 7px; cursor: pointer; }
+	.tcm-burger span { display: block; width: 22px; height: 2px; background: #1a1815; border-radius: 2px; transition: transform .25s ease, opacity .2s ease; }
+	.tcm-sidebar.is-open .tcm-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+	.tcm-sidebar.is-open .tcm-burger span:nth-child(2) { opacity: 0; }
+	.tcm-sidebar.is-open .tcm-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 	.tcm-sidebar-body { display: none; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--tcm-border-2); }
 	.tcm-sidebar.is-open .tcm-sidebar-body { display: flex; }
 	.tcm-app { padding: 20px 16px 40px; }

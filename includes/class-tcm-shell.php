@@ -89,8 +89,18 @@ class TCM_Shell {
 		ob_start();
 		echo '<aside class="tcm-sidebar">';
 
+		$logo = apply_filters( 'tcm_sidebar_logo', home_url( '/wp-content/uploads/2026/07/Logos-Noir-Vide.webp' ) );
+		$dash = get_page_by_path( 'tableau-de-bord' );
+		$home = $dash ? get_permalink( $dash ) : home_url( '/' );
+
 		echo '<div class="tcm-sidebar-top">';
-		echo '<div class="tcm-brand"><span class="tcm-brand-mark"></span><span class="tcm-brand-name">TC Mimet</span></div>';
+		echo '<a class="tcm-brand" href="' . esc_url( $home ) . '" aria-label="Tennis Club Mimet">';
+		if ( $logo ) {
+			echo '<img class="tcm-brand-logo" src="' . esc_url( $logo ) . '" alt="Tennis Club Mimet">';
+		} else {
+			echo '<span class="tcm-brand-mark"></span><span class="tcm-brand-name">TC Mimet</span>';
+		}
+		echo '</a>';
 		echo '<button type="button" class="tcm-burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>';
 		echo '</div>';
 
