@@ -741,7 +741,7 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
 	.tcm-insc-grid { grid-template-columns: 1fr; }
 	/* Bouton de validation centré sur mobile */
 	.tcm-insc-submit { text-align: center; }
-	.tcm-insc-title { padding-top: 20px; }
+	.tcm-insc-title { padding-top: 20px; padding-left: 16px; }
 }
 
 /* --------------------------------------------------------------------------
