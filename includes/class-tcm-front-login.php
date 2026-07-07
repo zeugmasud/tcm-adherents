@@ -33,7 +33,7 @@ class TCM_Front_Login {
 
 	/** Libellé du CTA (filtrable). */
 	private function cta_label(): string {
-		return (string) apply_filters( 'tcm_cta_label', 'Espace adhérent' );
+		return (string) apply_filters( 'tcm_cta_label', 'Connexion' );
 	}
 
 	public function assets(): void {
