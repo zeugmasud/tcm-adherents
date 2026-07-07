@@ -1,0 +1,51 @@
+/* CTA « Espace adhérent » (charte club) + modale de connexion — site public. */
+
+.tcm-cta{
+	display:inline-flex; align-items:center; justify-content:center;
+	background:#F4C020; color:#1A1815 !important;
+	font-family:'Rubik',sans-serif; font-weight:700; text-transform:uppercase;
+	font-size:14px; letter-spacing:.5px; line-height:1;
+	padding:11px 22px; border-radius:40px; border:0; cursor:pointer;
+	text-decoration:none; transition:background .2s ease, color .2s ease;
+}
+.tcm-cta:hover{ background:#E0851A; color:#fff !important; }
+
+/* Élément de menu qui porte le CTA */
+.tcm-cta-item{ display:flex !important; align-items:center; }
+.tcm-cta-item .tcm-cta{ margin-left:12px; }
+
+/* Modale */
+.tcm-login-modal{
+	position:fixed; inset:0; background:rgba(26,24,21,.55);
+	display:none; align-items:center; justify-content:center; z-index:100000;
+}
+.tcm-login-modal.is-open{ display:flex; }
+.tcm-login-box{
+	position:relative; width:380px; max-width:92vw; box-sizing:border-box;
+	background:#fff; border-radius:16px; padding:34px 30px;
+	box-shadow:0 24px 70px rgba(0,0,0,.3);
+	font-family:'Rubik',sans-serif; color:#1A1815;
+}
+.tcm-login-close{
+	position:absolute; top:12px; right:14px; background:none; border:0;
+	font-size:26px; line-height:1; cursor:pointer; color:#1A1815;
+}
+.tcm-login-box h3{
+	font-family:'Rubik',sans-serif; font-weight:900; text-transform:uppercase;
+	font-size:22px; margin:0 0 6px; color:#1A1815;
+}
+.tcm-login-sub{ font-size:14px; color:#6b6659; margin:0 0 22px; }
+.tcm-login-box label{ display:block; font-size:13px; font-weight:600; margin-bottom:14px; }
+.tcm-login-box input[type=text],
+.tcm-login-box input[type=password]{
+	width:100%; box-sizing:border-box; margin-top:6px;
+	padding:11px 13px; border:1px solid #ddd; border-radius:8px;
+	font-size:15px; font-family:'Rubik',sans-serif; color:#1A1815; background:#fff;
+}
+.tcm-login-box input:focus{ outline:none; border-color:#F4C020; }
+.tcm-login-remember{ font-weight:400 !important; display:flex; align-items:center; gap:8px; }
+.tcm-login-remember input{ width:auto; margin:0; }
+.tcm-login-err{ color:#b42318; font-size:13px; min-height:16px; margin:2px 0 8px; }
+.tcm-login-submit{ width:100%; padding:13px; font-size:15px; margin-top:4px; }
+.tcm-login-forgot{ display:block; text-align:center; margin-top:14px; font-size:13px; color:#6b6659; text-decoration:underline; }
+.tcm-login-forgot:hover{ color:#E0851A; }

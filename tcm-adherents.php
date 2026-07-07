@@ -62,6 +62,7 @@ require_once TCM_PATH . 'includes/class-tcm-normalize.php';
 require_once TCM_PATH . 'includes/class-tcm-inscription.php';
 require_once TCM_PATH . 'includes/class-tcm-import-full.php';
 require_once TCM_PATH . 'includes/class-tcm-maintenance.php';
+require_once TCM_PATH . 'includes/class-tcm-front-login.php';
 require_once TCM_PATH . 'includes/class-tcm-plugin.php';
 
 // -----------------------------------------------------------------------------

@@ -51,6 +51,7 @@ final class TCM_Plugin {
 		( new TCM_Inscription() )->hooks();
 		( new TCM_Import_Full() )->hooks();
 		( new TCM_Maintenance() )->hooks();
+		( new TCM_Front_Login() )->hooks();
 
 		// Admin. Priorité 9 : le menu parent DOIT être enregistré avant les
 		// sous-menus (Importer/Réglages/Dupliquer), sinon leur accès direct est
