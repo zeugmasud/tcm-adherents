@@ -1,7 +1,11 @@
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.tcm-tabs').forEach(function (tabs) {
     const buttons = tabs.querySelectorAll('.tcm-tab');
-    const panels = tabs.querySelectorAll('.tcm-tabpanel');
+    // Certains panneaux (Cours/Historique) se retrouvent hors de .tcm-tabs dans le
+    // DOM (le HTML de la section inscriptions casse l'imbrication) : on cherche donc
+    // les panneaux dans toute la fiche pour pouvoir les activer au clic.
+    const panelScope = tabs.closest('.tcm-fiche') || tabs.parentElement || document;
+    const panels = panelScope.querySelectorAll('.tcm-tabpanel');
     buttons.forEach(function (button) {
       button.addEventListener('click', function () {
         const target = button.getAttribute('data-tab');

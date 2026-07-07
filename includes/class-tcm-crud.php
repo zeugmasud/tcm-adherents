@@ -262,7 +262,6 @@ class TCM_Crud {
 		// Calculette (aide au calcul), ouverte par le picto de l'en-tête.
 		echo $this->calc_modal();
 
-		echo '</div>';
 		return (string) ob_get_clean();
 	}
 
