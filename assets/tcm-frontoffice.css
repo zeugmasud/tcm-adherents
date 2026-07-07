@@ -708,8 +708,16 @@ body.tcm-crm-shell .tcm-crm-detail .button-small {
 .tcm-insc-check { margin: 4px 0 16px; }
 .tcm-insc-check label { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
 .tcm-insc-submit { margin-top: 8px; }
-.tcm-insc-btn { background: var(--tcm-accent); color: #fff; border: 0; padding: 12px 26px; border-radius: var(--tcm-radius-sm); font: 600 15px var(--tcm-sans); cursor: pointer; }
-.tcm-insc-btn:hover { background: #1d4ed8; }
+.tcm-insc-btn {
+	display: inline-flex; align-items: center; justify-content: center;
+	background: #F4C020 !important; color: #1A1815 !important;
+	font-family: 'Rubik', var(--tcm-sans) !important; font-weight: 700 !important;
+	text-transform: uppercase; font-size: 15px; letter-spacing: .5px; line-height: 1;
+	padding: 14px 30px !important; border: 0 !important; border-radius: 40px !important;
+	box-shadow: none !important; cursor: pointer; -webkit-appearance: none; appearance: none;
+	transition: background .2s ease, color .2s ease;
+}
+.tcm-insc-btn:hover { background: #E0851A !important; color: #fff !important; }
 
 /* Groupes radio (déjà adhérent, changement, attestation, droit à l'image) */
 .tcm-insc-radio { display: flex; flex-direction: column; gap: 8px; margin: 4px 0; }
