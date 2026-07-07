@@ -10,6 +10,17 @@ document.addEventListener('DOMContentLoaded', function () {
         panels.forEach(function (panel) {
           panel.classList.toggle('is-active', panel.id === target);
         });
+        // Refléter l'onglet actif dans l'URL + les liens de la liste (master-detail),
+        // pour qu'il soit conservé au rechargement et en passant d'un adhérent à l'autre.
+        var slug = (target || '').replace('tcm-tab-', '');
+        try {
+          var u = new URL(window.location.href);
+          u.searchParams.set('tab', slug);
+          history.replaceState(null, '', u.toString());
+        } catch (e) {}
+        document.querySelectorAll('.tcm-crm-row').forEach(function (a) {
+          try { var au = new URL(a.href); au.searchParams.set('tab', slug); a.href = au.toString(); } catch (e) {}
+        });
       });
     });
   });

@@ -187,6 +187,12 @@ class TCM_Dashboard {
 			echo '<p class="tcm-crm-empty">Aucun adhérent pour cette sélection.</p>';
 		}
 
+		// Onglet actif à conserver quand on passe d'un adhérent à l'autre.
+		$cur_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		if ( ! in_array( $cur_tab, array( 'coordonnees', 'reglements', 'commandes', 'inscriptions', 'historique' ), true ) ) {
+			$cur_tab = '';
+		}
+
 		foreach ( $rows as $r ) {
 			$cls  = ( $r['aid'] === $id ) ? ' is-active' : '';
 			if ( 'g' === $r['sexe'] ) {
@@ -194,7 +200,11 @@ class TCM_Dashboard {
 			} elseif ( 'f' === $r['sexe'] ) {
 				$cls .= ' sexe-f';
 			}
-			$href = esc_url( add_query_arg( array( 'id' => $r['aid'], 'saison' => $saison ), $page_url ) );
+			$args = array( 'id' => $r['aid'], 'saison' => $saison );
+			if ( '' !== $cur_tab ) {
+				$args['tab'] = $cur_tab;
+			}
+			$href = esc_url( add_query_arg( $args, $page_url ) );
 			$sub  = 'Saison ' . esc_html( $r['saison'] );
 			if ( null !== $r['age'] ) {
 				$sub .= ' · ' . (int) $r['age'] . ' ans';
