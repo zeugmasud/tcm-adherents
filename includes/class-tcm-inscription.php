@@ -41,6 +41,15 @@ class TCM_Inscription {
 			'show_changement'  => 1,
 			'require_address'  => 0,
 			'require_photo'    => 1,
+			// E-mails.
+			'mail_from'           => 'contact@tcmimet.fr',
+			'mail_from_name'      => 'Tennis Club de Mimet',
+			'mail_ack_on'         => 1,
+			'mail_ack_subject'    => 'Votre demande d’inscription au Tennis Club de Mimet',
+			'mail_ack_body'       => "Bonjour {prenom} {nom},\n\nNous avons bien reçu votre demande d’inscription pour la saison {saison}. Le bureau du club va l’étudier et reviendra vers vous pour finaliser le dossier.\n\nSportivement,\nLe Tennis Club de Mimet",
+			'mail_notify_on'      => 1,
+			'mail_notify_to'      => get_option( 'admin_email' ),
+			'mail_notify_subject' => 'Nouvelle inscription — {nom} {prenom} ({saison})',
 		);
 		$saved = get_option( 'tcm_insc_settings', array() );
 		return array_merge( $defaults, is_array( $saved ) ? $saved : array() );
@@ -365,7 +374,66 @@ class TCM_Inscription {
 		}
 		TCM_Taxonomies::sync_adherent( $aid );
 
+		// E-mails : accusé de réception à l'adhérent + notification au bureau.
+		$this->send_mails( $s, $person, array(
+			'prenom'    => $prenom,
+			'nom'       => $nom,
+			'saison'    => $saison,
+			'email'     => $email,
+			'telephone' => $tel,
+			'dob'       => $dob,
+			'mineur'    => $minor,
+			'nouvel'    => $nouvel,
+		) );
+
 		$this->back( $redirect, 'ok', '' );
+	}
+
+	/** Envoie l'accusé de réception (adhérent) et la notification (bureau). */
+	private function send_mails( array $s, int $person, array $ctx ): void {
+		$from      = $s['mail_from'] ? $s['mail_from'] : 'contact@tcmimet.fr';
+		$from_name = $s['mail_from_name'] ? $s['mail_from_name'] : 'Tennis Club de Mimet';
+		$headers   = array( 'From: ' . $from_name . ' <' . $from . '>', 'Content-Type: text/plain; charset=UTF-8' );
+
+		$vars = array(
+			'{prenom}' => (string) $ctx['prenom'],
+			'{nom}'    => (string) $ctx['nom'],
+			'{saison}' => (string) $ctx['saison'],
+			'{email}'  => (string) $ctx['email'],
+		);
+
+		// 1. Accusé de réception à l'adhérent.
+		$to_applicant = $ctx['email'] ? $ctx['email'] : (string) get_field( 'email', $person );
+		if ( ! empty( $s['mail_ack_on'] ) && is_email( $to_applicant ) ) {
+			wp_mail(
+				$to_applicant,
+				strtr( (string) $s['mail_ack_subject'], $vars ),
+				strtr( (string) $s['mail_ack_body'], $vars ),
+				$headers
+			);
+		}
+
+		// 2. Notification au bureau.
+		if ( ! empty( $s['mail_notify_on'] ) && is_email( $s['mail_notify_to'] ) ) {
+			$d      = preg_replace( '/\D/', '', (string) $ctx['dob'] );
+			$dob_fr = 8 === strlen( $d ) ? substr( $d, 6, 2 ) . '/' . substr( $d, 4, 2 ) . '/' . substr( $d, 0, 4 ) : (string) $ctx['dob'];
+			$lines  = array(
+				'Nouvelle demande d’inscription — saison ' . $ctx['saison'],
+				'',
+				'Nom : ' . $ctx['nom'] . ' ' . $ctx['prenom'],
+				'Naissance : ' . $dob_fr . ( $ctx['mineur'] ? ' (mineur)' : '' ),
+				'E-mail : ' . ( $ctx['email'] ? $ctx['email'] : '—' ),
+				'Téléphone : ' . ( $ctx['telephone'] ? $ctx['telephone'] : '—' ),
+				'Type : ' . ( $ctx['nouvel'] ? 'nouvelle inscription' : 'renouvellement' ),
+				'',
+				'Back-office : ' . admin_url( 'admin.php?page=tcm-adherents' ),
+			);
+			$nheaders = $headers;
+			if ( is_email( $to_applicant ) ) {
+				$nheaders[] = 'Reply-To: ' . $to_applicant;
+			}
+			wp_mail( $s['mail_notify_to'], strtr( (string) $s['mail_notify_subject'], $vars ), implode( "\n", $lines ), $nheaders );
+		}
 	}
 
 	private function is_minor( string $ymd ): bool {
@@ -452,6 +520,26 @@ class TCM_Inscription {
 			. '<textarea id="ti-sm" name="success_msg" rows="3" class="large-text">' . esc_textarea( $s['success_msg'] ) . '</textarea>'
 			. '<p class="description">Affiché après l’envoi. <code>{saison}</code> est remplacé par la saison.</p></td></tr>';
 
+		// --- E-mails --------------------------------------------------------
+		echo '<tr><th scope="row"><h2 style="margin:18px 0 0;">E-mails à la soumission</h2></th><td style="padding-top:24px;"></td></tr>';
+
+		echo '<tr><th>Expéditeur</th><td>'
+			. 'Nom <input type="text" name="mail_from_name" value="' . esc_attr( $s['mail_from_name'] ) . '" class="regular-text"> &nbsp; '
+			. 'Adresse <input type="email" name="mail_from" value="' . esc_attr( $s['mail_from'] ) . '" class="regular-text">'
+			. '<p class="description">Expéditeur commun aux deux e-mails.</p></td></tr>';
+
+		echo '<tr><th>Accusé de réception (adhérent)</th><td>'
+			. '<label><input type="checkbox" name="mail_ack_on" value="1" ' . checked( $s['mail_ack_on'], 1, false ) . '> Envoyer un e-mail de confirmation à l’adhérent</label>'
+			. '<p style="margin:12px 0 4px;"><strong>Objet</strong></p><input type="text" name="mail_ack_subject" value="' . esc_attr( $s['mail_ack_subject'] ) . '" class="large-text">'
+			. '<p style="margin:12px 0 4px;"><strong>Message</strong></p><textarea name="mail_ack_body" rows="6" class="large-text">' . esc_textarea( $s['mail_ack_body'] ) . '</textarea>'
+			. '<p class="description">Variables : <code>{prenom}</code>, <code>{nom}</code>, <code>{saison}</code>, <code>{email}</code>.</p></td></tr>';
+
+		echo '<tr><th>Notification (bureau)</th><td>'
+			. '<label><input type="checkbox" name="mail_notify_on" value="1" ' . checked( $s['mail_notify_on'], 1, false ) . '> Prévenir le bureau à chaque nouvelle inscription</label>'
+			. '<p style="margin:12px 0 4px;"><strong>Destinataire</strong></p><input type="email" name="mail_notify_to" value="' . esc_attr( $s['mail_notify_to'] ) . '" class="regular-text">'
+			. '<p style="margin:12px 0 4px;"><strong>Objet</strong></p><input type="text" name="mail_notify_subject" value="' . esc_attr( $s['mail_notify_subject'] ) . '" class="large-text">'
+			. '<p class="description">Le corps liste automatiquement les infos de la demande. Variables d’objet : <code>{prenom}</code>, <code>{nom}</code>, <code>{saison}</code>.</p></td></tr>';
+
 		echo '</tbody></table>';
 		submit_button( __( 'Enregistrer', 'tcm-adherents' ) );
 		echo '</form></div>';
@@ -471,6 +559,14 @@ class TCM_Inscription {
 			'require_photo'    => empty( $_POST['require_photo'] ) ? 0 : 1,
 			'success_title'    => sanitize_text_field( wp_unslash( $_POST['success_title'] ?? '' ) ),
 			'success_msg'      => sanitize_textarea_field( wp_unslash( $_POST['success_msg'] ?? '' ) ),
+			'mail_from'           => sanitize_email( wp_unslash( $_POST['mail_from'] ?? '' ) ),
+			'mail_from_name'      => sanitize_text_field( wp_unslash( $_POST['mail_from_name'] ?? '' ) ),
+			'mail_ack_on'         => empty( $_POST['mail_ack_on'] ) ? 0 : 1,
+			'mail_ack_subject'    => sanitize_text_field( wp_unslash( $_POST['mail_ack_subject'] ?? '' ) ),
+			'mail_ack_body'       => sanitize_textarea_field( wp_unslash( $_POST['mail_ack_body'] ?? '' ) ),
+			'mail_notify_on'      => empty( $_POST['mail_notify_on'] ) ? 0 : 1,
+			'mail_notify_to'      => sanitize_email( wp_unslash( $_POST['mail_notify_to'] ?? '' ) ),
+			'mail_notify_subject' => sanitize_text_field( wp_unslash( $_POST['mail_notify_subject'] ?? '' ) ),
 		) );
 		wp_safe_redirect( admin_url( 'admin.php?page=tcm-form-adhesion&msg=saved' ) );
 		exit;
