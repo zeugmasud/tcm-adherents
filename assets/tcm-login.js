@@ -10,6 +10,8 @@
 	if (document.body.classList.contains('tcm-crm-shell')) { return; }
 
 	var dash = C.dashboard || '/tableau-de-bord/';
+	// wp_localize_script sérialise en chaîne : "0" (déconnecté) est truthy en JS.
+	var isLogged = (C.loggedIn === true || C.loggedIn === 1 || C.loggedIn === '1');
 
 	function makeCta() {
 		var li = document.createElement('li');
@@ -49,7 +51,7 @@
 	document.addEventListener('click', function (e) {
 		var a = e.target.closest('.tcm-cta, a[href*="/tableau-de-bord"]');
 		if (!a || a.closest('.tcm-login-box')) { return; }
-		if (C.loggedIn) { return; } // connecté : navigation normale vers le dashboard
+		if (isLogged) { return; } // connecté : navigation normale vers le dashboard
 		e.preventDefault();
 		openModal();
 	});
