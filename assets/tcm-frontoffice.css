@@ -221,6 +221,12 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 .tcm-crm-main { flex: 1 1 auto; min-width: 0; }
 .tcm-crm-main strong { display: block; font-weight: 600; }
 .tcm-crm-sub { display: block; color: var(--tcm-muted); font-size: 13px; margin-top: 2px; }
+.tcm-crm-cours {
+	display: inline-flex; align-items: center; justify-content: center;
+	min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px;
+	border-radius: 999px; background: var(--tcm-accent); color: #fff;
+	font-size: 11px; font-weight: 700; line-height: 1; vertical-align: middle;
+}
 .tcm-crm-row.is-active { background: var(--tcm-accent-bg); box-shadow: inset 3px 0 0 var(--tcm-accent); }
 .tcm-crm-row.is-active .tcm-crm-main strong { color: var(--tcm-accent); }
 .tcm-crm-flags { flex: 0 0 auto; display: flex; gap: 6px; }

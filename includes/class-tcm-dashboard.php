@@ -158,6 +158,15 @@ class TCM_Dashboard {
 				'complet' => (bool) get_field( 'dossier_complet', $aid ),
 				'adoc'    => (bool) get_field( 'adoc_valide', $aid ),
 				'sexe'    => $this->sexe_from( get_field( 'civilite', $pid ) ),
+				'cours'   => count( get_posts( array(
+					'post_type'      => TCM_CPT_INSCRIPTION,
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+					'post_status'    => 'publish',
+					'no_found_rows'  => true,
+					'meta_key'       => 'adherent',
+					'meta_value'     => $aid,
+				) ) ),
 			);
 		}
 		wp_reset_postdata();
@@ -209,6 +218,7 @@ class TCM_Dashboard {
 			if ( null !== $r['age'] ) {
 				$sub .= ' · ' . (int) $r['age'] . ' ans';
 			}
+			$sub .= ' <span class="tcm-crm-cours" title="' . (int) $r['cours'] . ' cours">' . (int) $r['cours'] . '</span>';
 			echo '<a class="tcm-crm-row' . $cls . '" href="' . $href . '">';
 			echo '<span class="tcm-crm-main"><strong>' . esc_html( $r['nom'] ) . '</strong><span class="tcm-crm-sub">' . $sub . '</span></span>';
 			echo '<span class="tcm-crm-flags">';
