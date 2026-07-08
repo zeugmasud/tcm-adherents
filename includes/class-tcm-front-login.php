@@ -4,10 +4,13 @@
  *
  * - Injecte un bouton CTA (charte club) dans le menu principal du site public,
  *   pointant vers /tableau-de-bord/.
- * - Si le visiteur n'est pas connecté, un clic ouvre une modale de connexion
- *   (login AJAX via wp_signon) au lieu d'aller sur wp-login.php ; à la réussite,
- *   redirection vers le tableau de bord.
- * - Neutralisé dans le back-office (pages du shell tcm-crm-shell).
+ * - Si le visiteur n'est pas connecté, un clic ouvre une modale de connexion.
+ *   Le formulaire se soumet NATIVEMENT vers wp-login.php (endpoint standard) :
+ *   c'est la seule méthode qui pose un cookie de session fiable sur cette config
+ *   (proxy Plesk + plugin de consentement cookies). Une connexion initiée hors
+ *   wp-login (front-office, REST, admin-ajax) authentifie mais le cookie n'est
+ *   pas reconnu sur la redirection immédiate.
+ * - Neutralisé dans le back-office (pages du shell tcm-crm-shell) via le JS.
  *
  * @package TCM_Adherents
  */
@@ -21,8 +24,6 @@ class TCM_Front_Login {
 	public function hooks(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'wp_footer', array( $this, 'modal' ) );
-		add_action( 'wp_ajax_nopriv_tcm_login', array( $this, 'ajax_login' ) );
-		add_action( 'wp_ajax_tcm_login', array( $this, 'ajax_login' ) );
 	}
 
 	/** URL du tableau de bord (cible du CTA). */
@@ -46,8 +47,6 @@ class TCM_Front_Login {
 		wp_enqueue_script( 'tcm-login', TCM_URL . 'assets/tcm-login.js', array(), file_exists( $js ) ? filemtime( $js ) : TCM_VERSION, true );
 
 		wp_localize_script( 'tcm-login', 'TCM_LOGIN', array(
-			'ajax'      => admin_url( 'admin-ajax.php' ),
-			'nonce'     => wp_create_nonce( 'tcm_login' ),
 			'loggedIn'  => is_user_logged_in() ? 1 : 0,
 			'dashboard' => $this->dashboard_url(),
 			'label'     => $this->cta_label(),
@@ -77,27 +76,5 @@ class TCM_Front_Login {
 	</div>
 </div>
 		<?php
-	}
-
-	public function ajax_login(): void {
-		check_ajax_referer( 'tcm_login', 'nonce' );
-
-		$creds = array(
-			'user_login'    => sanitize_text_field( wp_unslash( $_POST['log'] ?? '' ) ),
-			'user_password' => (string) ( $_POST['pwd'] ?? '' ),
-			'remember'      => ! empty( $_POST['remember'] ),
-		);
-
-		if ( '' === $creds['user_login'] || '' === $creds['user_password'] ) {
-			wp_send_json_error( array( 'message' => 'Merci de renseigner votre identifiant et votre mot de passe.' ) );
-		}
-
-		$user = wp_signon( $creds, is_ssl() );
-		if ( is_wp_error( $user ) ) {
-			// Message générique (ne révèle pas si l'identifiant existe).
-			wp_send_json_error( array( 'message' => 'Identifiant ou mot de passe incorrect.' ) );
-		}
-
-		wp_send_json_success( array( 'redirect' => $this->dashboard_url() ) );
 	}
 }

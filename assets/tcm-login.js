@@ -1,7 +1,12 @@
 /**
  * CTA « Espace adhérent » + modale de connexion (site public).
- * Injecte le CTA dans le menu principal ; si non connecté, ouvre la modale de
- * connexion (login AJAX) au lieu d'aller sur wp-login.php.
+ *
+ * Le formulaire de la modale se soumet NATIVEMENT vers wp-login.php (endpoint
+ * standard WordPress) : wp-login pose le cookie de session et redirige (302) vers
+ * le tableau de bord. On NE pose PAS le cookie depuis le front-office (page
+ * d'accueil / REST / admin-ajax) car le plugin de consentement cookies filtre les
+ * cookies posés sur le front tant que le consentement n'est pas donné → la session
+ * n'était pas reconnue. wp-login.php est épargné par ces plugins.
  */
 (function () {
 	var C = window.TCM_LOGIN || {};
@@ -13,12 +18,8 @@
 	// wp_localize_script sérialise en chaîne : "0" (déconnecté) est truthy en JS.
 	var isLogged = (C.loggedIn === true || C.loggedIn === 1 || C.loggedIn === '1');
 
-	// Le bouton « Connexion » est géré directement dans le menu du site.
-	// Ici on se contente d'intercepter les clics vers le tableau de bord pour
-	// ouvrir la modale de connexion quand le visiteur n'est pas connecté.
-
-	// Modale
 	var modal = document.getElementById('tcm-login-modal');
+
 	function openModal() {
 		if (!modal) { window.location.href = dash; return; }
 		modal.classList.add('is-open');
@@ -30,32 +31,30 @@
 		if (modal) { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); }
 	}
 
-	// 2. Clic sur le CTA (ou tout lien vers le tableau de bord).
+	// Clic sur le CTA (ou tout lien vers le tableau de bord) : si déconnecté,
+	// ouvrir la modale au lieu de naviguer.
 	document.addEventListener('click', function (e) {
 		var a = e.target.closest('a[href*="/tableau-de-bord"]');
 		if (!a || a.closest('.tcm-login-box')) { return; }
-		if (isLogged) { return; } // connecté : navigation normale vers le dashboard
+		if (isLogged) { return; } // connecté : navigation normale
 		e.preventDefault();
 		openModal();
 	});
 
-	// 3. Modale : fermeture. La soumission part NATIVEMENT vers wp-login.php
-	// (mécanisme de cookie WordPress standard, fiable derrière un proxy) : on ne
-	// fait plus de login AJAX (le cookie posé via admin-ajax n'était pas reconnu).
-	if (modal) {
-		modal.addEventListener('click', function (e) {
-			if (e.target === modal || e.target.closest('.tcm-login-close')) { closeModal(); }
-		});
-		// wp-login.php exige le cookie de test WordPress (posé normalement au chargement
-		// de la page de login). Comme la modale poste en direct, on le pose nous-mêmes
-		// juste avant l'envoi, sinon wp-login ré-affiche le formulaire au lieu de connecter.
-		var loginForm = modal.querySelector('form');
-		if (loginForm) {
-			loginForm.addEventListener('submit', function () {
-				document.cookie = 'wordpress_test_cookie=WP Cookie check; path=/';
-			});
-		}
-	}
+	if (!modal) { return; }
 
+	// Fermeture (clic sur le fond ou la croix, touche Échap).
+	modal.addEventListener('click', function (e) {
+		if (e.target === modal || e.target.closest('.tcm-login-close')) { closeModal(); }
+	});
 	document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeModal(); } });
+
+	// wp-login.php attend normalement un cookie de test posé au chargement de sa
+	// page. Comme la modale poste en direct, on le pose nous-mêmes juste avant.
+	var form = modal.querySelector('form');
+	if (form) {
+		form.addEventListener('submit', function () {
+			document.cookie = 'wordpress_test_cookie=WP Cookie check; path=/';
+		});
+	}
 })();
