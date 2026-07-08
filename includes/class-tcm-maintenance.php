@@ -73,7 +73,55 @@ class TCM_Maintenance {
 		submit_button( __( 'Importer & compléter depuis ADOC', 'tcm-adherents' ), 'primary', 'submit', false );
 		echo '</form>';
 
+		// --- Doublons de saison (lecture seule) ---------------------------
+		echo '<hr><h2>' . esc_html__( 'Doublons (une personne avec plusieurs fiches sur une même saison)', 'tcm-adherents' ) . '</h2>';
+		$dups = $this->season_duplicates();
+		if ( ! $dups ) {
+			echo '<p>' . esc_html__( 'Aucun doublon détecté.', 'tcm-adherents' ) . '</p>';
+		} else {
+			$bo     = get_page_by_path( 'back-office-adherents' );
+			$bo_url = $bo ? get_permalink( $bo ) : home_url( '/back-office-adherents/' );
+			echo '<p>' . esc_html__( 'Ouvrez chaque fiche en double et supprimez celle à retirer dans le back-office.', 'tcm-adherents' ) . '</p>';
+			echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>Saison</th><th>Personne</th><th>Fiches adhérent</th></tr></thead><tbody>';
+			foreach ( $dups as $d ) {
+				echo '<tr><td>' . esc_html( $d['saison'] ) . '</td><td>' . esc_html( $d['name'] ) . '</td><td>';
+				foreach ( $d['adherents'] as $aid ) {
+					echo '<a href="' . esc_url( add_query_arg( 'id', $aid, $bo_url ) ) . '" target="_blank">#' . (int) $aid . '</a> ';
+				}
+				echo '</td></tr>';
+			}
+			echo '</tbody></table>';
+		}
+
 		echo '</div>';
+	}
+
+	/**
+	 * Détecte les doublons : même personne rattachée à plusieurs fiches adhérent
+	 * sur une même saison (cause de l'écart Personnes ≠ Adhésions). Lecture seule.
+	 *
+	 * @return array<int,array{saison:string,name:string,adherents:int[]}>
+	 */
+	private function season_duplicates(): array {
+		$adh = get_posts( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids' ) );
+		$map = array();
+		foreach ( $adh as $a ) {
+			$pid   = (int) get_field( 'personne', $a );
+			$terms = wp_get_post_terms( $a, TCM_Taxonomies::TAX_SAISON, array( 'fields' => 'names' ) );
+			$saison = ( is_wp_error( $terms ) || empty( $terms ) ) ? '(sans saison)' : $terms[0];
+			$map[ $saison . '|' . $pid ][] = (int) $a;
+		}
+		$out = array();
+		foreach ( $map as $key => $aids ) {
+			if ( count( $aids ) < 2 ) {
+				continue;
+			}
+			list( $saison, $pid ) = explode( '|', $key, 2 );
+			$pid  = (int) $pid;
+			$name = $pid ? trim( (string) get_field( 'nom', $pid ) . ' ' . (string) get_field( 'prenom', $pid ) ) : '(fiche personne manquante)';
+			$out[] = array( 'saison' => $saison, 'name' => ( '' !== $name ? $name : '#' . $pid ), 'adherents' => $aids );
+		}
+		return $out;
 	}
 
 	/* =====================================================================

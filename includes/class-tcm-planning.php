@@ -230,6 +230,17 @@ class TCM_Planning {
 		$saison_courante = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
 		$saison          = isset( $_GET['saison'] ) ? sanitize_text_field( wp_unslash( $_GET['saison'] ) ) : $saison_courante;
 
+		// Bascule d'affichage : par cours (défaut) ou par adhérent.
+		$vue    = ( isset( $_GET['vue'] ) && 'adherents' === $_GET['vue'] ) ? 'adherents' : 'creneaux';
+		$statut = isset( $_GET['statut'] ) ? sanitize_text_field( wp_unslash( $_GET['statut'] ) ) : 'all';
+		if ( ! in_array( $statut, array( 'confirme', 'attente' ), true ) ) {
+			$statut = 'all';
+		}
+		$switch = $this->vue_switch( $page_url, $saison, $vue );
+		if ( 'adherents' === $vue ) {
+			return $switch . $this->render_par_adherent( $page_url, $saison, $statut );
+		}
+
 		$meta = array();
 		if ( 'all' !== $saison && '' !== $saison ) {
 			$meta[] = array( 'key' => 'saison', 'value' => $saison, 'compare' => '=' );
@@ -260,6 +271,7 @@ class TCM_Planning {
 		unset( $groupes );
 
 		ob_start();
+		echo $switch;
 		echo '<div class="tcm-planning"><div class="tcm-planning-list">';
 
 		echo '<form method="get" action="' . esc_url( $page_url ) . '" class="tcm-crm-bar">';
@@ -323,6 +335,89 @@ class TCM_Planning {
 			echo '<p>Sélectionnez un cours, ou créez-en un.</p>';
 		}
 		echo '</div></div>';
+		return (string) ob_get_clean();
+	}
+
+	/** Bascule Par cours / Par adhérent. */
+	private function vue_switch( string $page_url, string $saison, string $vue ): string {
+		$tab = static function ( string $v, string $label ) use ( $page_url, $saison, $vue ) {
+			$url = add_query_arg( array( 'vue' => $v, 'saison' => $saison ), $page_url );
+			$cls = 'tcm-vue-tab' . ( $v === $vue ? ' is-active' : '' );
+			return '<a class="' . $cls . '" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
+		};
+		return '<div class="tcm-vue-switch">' . $tab( 'creneaux', 'Par cours' ) . $tab( 'adherents', 'Par adhérent' ) . '</div>';
+	}
+
+	/**
+	 * Vue « par adhérent » : liste des inscriptions de la saison, triée par
+	 * adhérent, filtrable par statut (Validés / En attente).
+	 */
+	private function render_par_adherent( string $page_url, string $saison, string $statut ): string {
+		$meta = array();
+		if ( 'all' !== $saison && '' !== $saison ) {
+			$meta[] = array( 'key' => 'saison', 'value' => $saison, 'compare' => '=' );
+		}
+		$creneaux = get_posts( array( 'post_type' => TCM_CPT_CRENEAU, 'posts_per_page' => -1, 'post_status' => 'publish', 'fields' => 'ids', 'meta_query' => $meta ?: array() ) );
+		$ins      = $creneaux ? get_posts( array(
+			'post_type'      => TCM_CPT_INSCRIPTION,
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'meta_query'     => array( array( 'key' => 'creneau', 'value' => $creneaux, 'compare' => 'IN' ) ),
+		) ) : array();
+
+		$rows = array();
+		foreach ( $ins as $i ) {
+			$st = (string) get_field( 'statut', $i->ID );
+			if ( 'all' !== $statut && $st !== $statut ) {
+				continue;
+			}
+			$aid    = (int) get_field( 'adherent', $i->ID );
+			$rows[] = array(
+				'aid'     => $aid,
+				'nom'     => $this->person_name( $aid ),
+				'creneau' => $this->creneau_label( (int) get_field( 'creneau', $i->ID ) ),
+				'statut'  => $st,
+			);
+		}
+		usort( $rows, static function ( $a, $b ) {
+			return strcasecmp( remove_accents( $a['nom'] ), remove_accents( $b['nom'] ) );
+		} );
+
+		ob_start();
+		echo '<div class="tcm-planning-adh">';
+		echo '<form method="get" action="' . esc_url( $page_url ) . '" class="tcm-crm-bar">';
+		echo '<input type="hidden" name="vue" value="adherents">';
+		echo '<select name="saison" onchange="this.form.submit()">';
+		$saisons = get_terms( array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'DESC' ) );
+		if ( ! is_wp_error( $saisons ) ) {
+			foreach ( $saisons as $t ) {
+				echo '<option value="' . esc_attr( $t->name ) . '" ' . selected( $saison, $t->name, false ) . '>Saison ' . esc_html( $t->name ) . '</option>';
+			}
+		}
+		echo '<option value="all" ' . selected( $saison, 'all', false ) . '>Toutes les saisons</option>';
+		echo '</select>';
+		echo '<select name="statut" onchange="this.form.submit()">';
+		echo '<option value="all" ' . selected( $statut, 'all', false ) . '>Tous statuts</option>';
+		echo '<option value="confirme" ' . selected( $statut, 'confirme', false ) . '>Validés</option>';
+		echo '<option value="attente" ' . selected( $statut, 'attente', false ) . '>En attente</option>';
+		echo '</select>';
+		echo '</form>';
+
+		if ( ! $rows ) {
+			echo '<p class="tcm-crm-empty">Aucune inscription pour cette sélection.</p>';
+		} else {
+			echo '<div class="tcm-rows">';
+			foreach ( $rows as $r ) {
+				$fic = esc_url( add_query_arg( array( 'id' => $r['aid'], 'tab' => 'inscriptions' ), $this->back_office_url() ) );
+				echo '<div class="tcm-row"><div class="tcm-row-main">';
+				echo '<a class="tcm-row-libelle tcm-link" href="' . $fic . '">' . esc_html( $r['nom'] ) . '</a>';
+				echo '<span class="tcm-muted"> · ' . esc_html( $r['creneau'] ) . '</span>';
+				echo '<span class="tcm-chip tcm-chip-' . esc_attr( $r['statut'] ) . '">' . esc_html( 'confirme' === $r['statut'] ? 'Confirmé' : 'Liste d’attente' ) . '</span>';
+				echo '</div></div>';
+			}
+			echo '</div>';
+		}
+		echo '</div>';
 		return (string) ob_get_clean();
 	}
 

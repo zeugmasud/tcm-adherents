@@ -152,18 +152,42 @@ body.admin-bar .tcm-shell { min-height: calc(100vh - 32px); }
 }
 .tcm-stat.is-warn strong { color: var(--tcm-warn); }
 
-/* Tuiles KPI pastel (une teinte douce par carte) */
+/* Tuiles KPI pastel — teinte par « ton » (classe .tcm-stat--xxx) */
 .tcm-stats .tcm-stat { border-color: transparent; }
-.tcm-stats .tcm-stat:nth-child(1) { background: #eef4ff; }
-.tcm-stats .tcm-stat:nth-child(1) strong { color: #3b6fd4; }
-.tcm-stats .tcm-stat:nth-child(2) { background: #eafaf0; }
-.tcm-stats .tcm-stat:nth-child(2) strong { color: #2f9e69; }
-.tcm-stats .tcm-stat:nth-child(3) { background: #fdf3e3; }
-.tcm-stats .tcm-stat:nth-child(3) strong { color: #c07a12; }
-.tcm-stats .tcm-stat:nth-child(4) { background: #f2effc; }
-.tcm-stats .tcm-stat:nth-child(4) strong { color: #6d54c8; }
-.tcm-stats .tcm-stat:nth-child(5) { background: #e6f6f5; }
-.tcm-stats .tcm-stat:nth-child(5) strong { color: #12938c; }
+.tcm-stat--blue   { background: #e6f0ff; }
+.tcm-stat--blue   strong { color: #2f6fd0; }
+.tcm-stat--green  { background: #eafaf0; }
+.tcm-stat--green  strong { color: #2f9e69; }
+.tcm-stat--orange { background: #fdf3e3; }
+.tcm-stat--orange strong { color: #c07a12; }
+.tcm-stat--purple { background: #f4eefb; }
+.tcm-stat--purple strong { color: #8046c8; }
+.tcm-stat--pink   { background: #fce7f1; }
+.tcm-stat--pink   strong { color: #c14b8a; }
+.tcm-stat--teal   { background: #e6f6f5; }
+.tcm-stat--teal   strong { color: #12938c; }
+.tcm-stat.is-warn { background: #fdf3e3; }
+.tcm-stat.is-warn strong { color: var(--tcm-warn); }
+
+/* Tuile cliquable (lien vers une liste filtrée) */
+a.tcm-stat.is-link { text-decoration: none; transition: transform .12s ease, box-shadow .12s ease; }
+a.tcm-stat.is-link:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(16,24,40,.12); }
+a.tcm-stat.is-link .tcm-stat-title::after { content: " ›"; opacity: .5; }
+
+/* Bascule de vue (planning : Par cours / Par adhérent) */
+.tcm-vue-switch { display: inline-flex; gap: 4px; background: var(--tcm-surface); border: 1px solid var(--tcm-border); border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.tcm-vue-tab { padding: 7px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--tcm-muted); text-decoration: none; }
+.tcm-vue-tab.is-active { background: var(--tcm-accent); color: #1a1a1a; }
+.tcm-planning-adh { background: var(--tcm-surface); border: 1px solid var(--tcm-border); border-radius: var(--tcm-radius); box-shadow: var(--tcm-shadow); padding: 8px 18px 16px; }
+.tcm-planning-adh .tcm-row-libelle { font-weight: 600; }
+
+/* Rangée de camemberts (majeurs/mineurs, femmes/hommes) */
+.tcm-charts-2 {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 18px;
+	margin-bottom: 22px;
+}
 
 /* Sélecteurs + variations du tableau de bord */
 .tcm-stats-bar { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }

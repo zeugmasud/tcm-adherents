@@ -20,6 +20,29 @@ class TCM_Taxonomies {
 	const TAX_SAISON  = 'tcm_saison';
 	const TAX_DOSSIER = 'tcm_dossier';
 
+	/** Noms des saisons du plus récent au plus ancien (ex. ['2027','2026']). */
+	public static function seasons_desc(): array {
+		$terms = get_terms( array(
+			'taxonomy'   => self::TAX_SAISON,
+			'hide_empty' => false,
+			'orderby'    => 'name',
+			'order'      => 'DESC',
+		) );
+		return is_wp_error( $terms ) ? array() : array_values( wp_list_pluck( $terms, 'name' ) );
+	}
+
+	/** Saison courante = la plus récente ('' si aucune). */
+	public static function current_saison(): string {
+		$s = self::seasons_desc();
+		return $s[0] ?? '';
+	}
+
+	/** Saison précédente = l'avant-dernière ('' si aucune). */
+	public static function previous_saison(): string {
+		$s = self::seasons_desc();
+		return $s[1] ?? '';
+	}
+
 	public function hooks(): void {
 		add_action( 'init', array( $this, 'register' ) );
 		add_action( 'admin_post_tcm_reindex_tax', array( $this, 'handle_reindex' ) );

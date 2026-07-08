@@ -131,9 +131,21 @@ class TCM_Dashboard {
 		$saison_courante = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
 		$saison = isset( $_GET['saison'] ) ? sanitize_text_field( wp_unslash( $_GET['saison'] ) ) : $saison_courante;
 
+		// Filtre dossier (liens depuis le tableau de bord) : Complet | Incomplet.
+		$dossier = isset( $_GET['dossier'] ) ? sanitize_text_field( wp_unslash( $_GET['dossier'] ) ) : '';
+		if ( ! in_array( $dossier, array( 'Complet', 'Incomplet' ), true ) ) {
+			$dossier = '';
+		}
+
 		$tax_query = array();
 		if ( 'all' !== $saison && '' !== $saison ) {
 			$tax_query[] = array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'field' => 'name', 'terms' => $saison );
+		}
+		if ( '' !== $dossier ) {
+			$tax_query[] = array( 'taxonomy' => TCM_Taxonomies::TAX_DOSSIER, 'field' => 'name', 'terms' => $dossier );
+		}
+		if ( count( $tax_query ) > 1 ) {
+			$tax_query['relation'] = 'AND';
 		}
 
 		$q = new WP_Query( array(
@@ -190,6 +202,11 @@ class TCM_Dashboard {
 		}
 		echo '<option value="all" ' . selected( $saison, 'all', false ) . '>Toutes les saisons</option>';
 		echo '</select>';
+		echo '<select name="dossier" onchange="this.form.submit()">';
+		echo '<option value="">Tous dossiers</option>';
+		echo '<option value="Complet" ' . selected( $dossier, 'Complet', false ) . '>Dossiers complets</option>';
+		echo '<option value="Incomplet" ' . selected( $dossier, 'Incomplet', false ) . '>Dossiers incomplets</option>';
+		echo '</select>';
 		echo '</form>';
 
 		if ( empty( $rows ) ) {
@@ -212,6 +229,9 @@ class TCM_Dashboard {
 			$args = array( 'id' => $r['aid'], 'saison' => $saison );
 			if ( '' !== $cur_tab ) {
 				$args['tab'] = $cur_tab;
+			}
+			if ( '' !== $dossier ) {
+				$args['dossier'] = $dossier;
 			}
 			$href = esc_url( add_query_arg( $args, $page_url ) );
 			$sub  = 'Saison ' . esc_html( $r['saison'] );
@@ -292,22 +312,68 @@ class TCM_Dashboard {
 		if ( ! current_user_can( 'tcm_manage' ) ) {
 			return '<p>Accès réservé.</p>';
 		}
-		$atts   = shortcode_atts( array( 'saison' => '' ), $atts );
-		$saison = isset( $_GET['saison'] ) ? sanitize_text_field( wp_unslash( $_GET['saison'] ) ) : ( '' !== $atts['saison'] ? $atts['saison'] : 'all' );
-		$cmp    = isset( $_GET['cmp'] ) ? sanitize_text_field( wp_unslash( $_GET['cmp'] ) ) : '';
+		$atts = shortcode_atts( array( 'saison' => '' ), $atts );
+		// Par défaut : saison la plus récente (2027) comparée à la précédente (2026).
+		// Dès que l'utilisateur choisit dans les sélecteurs, l'URL prend le relais.
+		if ( isset( $_GET['saison'] ) ) {
+			$saison = sanitize_text_field( wp_unslash( $_GET['saison'] ) );
+		} elseif ( '' !== $atts['saison'] ) {
+			$saison = $atts['saison'];
+		} else {
+			$saison = TCM_Taxonomies::current_saison() ?: 'all';
+		}
+		$cmp = isset( $_GET['cmp'] ) ? sanitize_text_field( wp_unslash( $_GET['cmp'] ) ) : TCM_Taxonomies::previous_saison();
+		if ( $cmp === $saison ) { $cmp = ''; }
 
 		$cur = $this->compute_stats( $saison );
 		$ref = ( '' !== $cmp && $cmp !== $saison ) ? $this->compute_stats( $cmp ) : null;
 
+		// URLs des listes filtrées (liens sur les tuiles).
+		$bo = $this->bo_url();
+		$pl = $this->planning_url();
+		$link_bo   = function ( array $extra = array() ) use ( $bo, $saison ) {
+			return add_query_arg( array_merge( array( 'saison' => $saison ), $extra ), $bo );
+		};
+		$link_cours = function ( string $statut ) use ( $pl, $saison ) {
+			return add_query_arg( array( 'vue' => 'adherents', 'statut' => $statut, 'saison' => $saison ), $pl );
+		};
+
 		ob_start();
 		echo $this->stats_selectors( $saison, $cmp );
+
+		// Ligne A — Adhésions, dossiers, ADOC.
 		echo '<div class="tcm-stats">';
-		echo $this->stat_tile( 'Personnes', $cur['personnes'], $ref['personnes'] ?? null );
-		echo $this->stat_tile( 'Adhésions', $cur['adhesions'], $ref['adhesions'] ?? null );
-		echo $this->stat_tile( 'Dossiers incomplets', $cur['incomplets'], $ref['incomplets'] ?? null, true, true );
-		echo $this->stat_tile( 'Encaissé', $cur['encaisse'], $ref['encaisse'] ?? null, false, false, true );
-		echo $this->stat_tile( 'ADOC validés', $cur['adoc'], $ref['adoc'] ?? null );
+		echo $this->stat_tile( 'Adhésions', $cur['adhesions'], $ref['adhesions'] ?? null, array( 'tone' => 'green', 'href' => $link_bo() ) );
+		echo $this->stat_tile( 'Dossiers complets', $cur['complets'], $ref['complets'] ?? null, array( 'tone' => 'teal', 'href' => $link_bo( array( 'dossier' => 'Complet' ) ) ) );
+		echo $this->stat_tile( 'Dossiers incomplets', $cur['incomplets'], $ref['incomplets'] ?? null, array( 'neutral' => true, 'warn' => true, 'href' => $link_bo( array( 'dossier' => 'Incomplet' ) ) ) );
+		echo $this->stat_tile( 'ADOC validés', $cur['adoc'], $ref['adoc'] ?? null, array( 'tone' => 'blue' ) );
 		echo '</div>';
+
+		// Ligne B — Démographie.
+		echo '<div class="tcm-stats">';
+		echo $this->stat_tile( 'Adultes', $cur['adultes'], $ref['adultes'] ?? null, array( 'tone' => 'blue' ) );
+		echo $this->stat_tile( 'Enfants', $cur['enfants'], $ref['enfants'] ?? null, array( 'tone' => 'purple' ) );
+		echo $this->stat_tile( 'Hommes', $cur['hommes'], $ref['hommes'] ?? null, array( 'tone' => 'teal' ) );
+		echo $this->stat_tile( 'Femmes', $cur['femmes'], $ref['femmes'] ?? null, array( 'tone' => 'pink' ) );
+		echo '</div>';
+
+		// Camemberts adultes/enfants et femmes/hommes (dossiers complets, saison courante).
+		echo '<div class="tcm-charts-2">';
+		echo do_shortcode( '[tcm_chart type=ages]' );
+		echo do_shortcode( '[tcm_chart type=sexes]' );
+		echo '</div>';
+
+		// Ligne C — Cours.
+		echo '<div class="tcm-stats">';
+		echo $this->stat_tile( 'Cours validés', $cur['cours_valides'], $ref['cours_valides'] ?? null, array( 'tone' => 'green', 'href' => $link_cours( 'confirme' ) ) );
+		echo $this->stat_tile( 'Cours en attente', $cur['cours_attente'], $ref['cours_attente'] ?? null, array( 'tone' => 'orange', 'href' => $link_cours( 'attente' ) ) );
+		echo '</div>';
+
+		// Ligne D — Encaissé.
+		echo '<div class="tcm-stats">';
+		echo $this->stat_tile( 'Encaissé', $cur['encaisse'], $ref['encaisse'] ?? null, array( 'tone' => 'green', 'euro' => true ) );
+		echo '</div>';
+
 		return (string) ob_get_clean();
 	}
 
@@ -333,10 +399,29 @@ class TCM_Dashboard {
 		return (string) ob_get_clean();
 	}
 
-	private function stat_tile( string $label, float $val, ?float $ref, bool $neutral = false, bool $is_warn_tile = false, bool $euro = false ): string {
-		$disp = $euro ? number_format( $val, 0, ',', ' ' ) . ' €' : (string) (int) $val;
+	/**
+	 * Une tuile KPI. $opts : neutral(bool), warn(bool), euro(bool),
+	 * tone(string : blue|green|orange|purple|pink|teal|warn|slate), href(string).
+	 * Si href est fourni, la tuile devient un lien vers la liste filtrée.
+	 */
+	private function stat_tile( string $label, float $val, ?float $ref, array $opts = array() ): string {
+		$neutral = ! empty( $opts['neutral'] );
+		$warn    = ! empty( $opts['warn'] );
+		$euro    = ! empty( $opts['euro'] );
+		$tone    = isset( $opts['tone'] ) ? (string) $opts['tone'] : '';
+		$href    = isset( $opts['href'] ) ? (string) $opts['href'] : '';
+
+		$disp    = $euro ? number_format( $val, 0, ',', ' ' ) . ' €' : (string) (int) $val;
+		$classes = 'tcm-stat';
+		if ( $warn ) { $classes .= ' is-warn'; }
+		if ( '' !== $tone ) { $classes .= ' tcm-stat--' . $tone; }
+		if ( '' !== $href ) { $classes .= ' is-link'; }
+		$tag = ( '' !== $href ) ? 'a' : 'div';
+
 		ob_start();
-		echo '<div class="tcm-stat' . ( $is_warn_tile ? ' is-warn' : '' ) . '">';
+		echo '<' . $tag . ' class="' . esc_attr( $classes ) . '"';
+		if ( '' !== $href ) { echo ' href="' . esc_url( $href ) . '"'; }
+		echo '>';
 		echo '<span class="tcm-stat-title">' . esc_html( $label ) . '</span>';
 		echo '<strong>' . esc_html( $disp ) . '</strong>';
 		if ( null !== $ref ) {
@@ -351,12 +436,24 @@ class TCM_Dashboard {
 			}
 			echo '<span class="tcm-delta tcm-delta-' . $cls . '">' . $arrow . ' ' . esc_html( $txt ) . '</span>';
 		}
-		echo '</div>';
+		echo '</' . $tag . '>';
 		return (string) ob_get_clean();
 	}
 
-	/** Calcule les KPI pour une saison ('all' = toutes). */
-	private function compute_stats( string $saison ): array {
+	/** URL de la page back-office adhérents. */
+	private function bo_url(): string {
+		$p = get_page_by_path( 'back-office-adherents' );
+		return $p ? get_permalink( $p ) : home_url( '/back-office-adherents/' );
+	}
+
+	/** URL de la page planning / créneaux. */
+	private function planning_url(): string {
+		$p = get_page_by_path( 'creneaux' );
+		return $p ? get_permalink( $p ) : home_url( '/creneaux/' );
+	}
+
+	/** Calcule les KPI pour une saison ('all' = toutes). Public : réutilisé par TCM_Chart. */
+	public function compute_stats( string $saison ): array {
 		$all        = ( '' === $saison || 'all' === $saison );
 		$saison_tax = $all ? array() : array( array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'field' => 'name', 'terms' => $saison ) );
 
@@ -365,6 +462,58 @@ class TCM_Dashboard {
 		$persons = array();
 		foreach ( $adh_ids as $a ) {
 			$persons[ (int) get_field( 'personne', $a ) ] = 1;
+		}
+
+		// Démographie (adultes/enfants, femmes/hommes) : uniquement les dossiers COMPLETS.
+		$complet_tax   = $saison_tax;
+		$complet_tax[] = array( 'taxonomy' => TCM_Taxonomies::TAX_DOSSIER, 'field' => 'name', 'terms' => 'Complet' );
+		if ( count( $complet_tax ) > 1 ) {
+			$complet_tax['relation'] = 'AND';
+		}
+		$adh_complet = get_posts( array( 'post_type' => TCM_CPT_ADHERENT, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'tax_query' => $complet_tax ) );
+
+		$adultes = 0;
+		$enfants = 0;
+		$femmes  = 0;
+		$hommes  = 0;
+		foreach ( $adh_complet as $a ) {
+			$pid = (int) get_field( 'personne', $a );
+
+			$age = $this->age_from( get_field( 'date_naissance', $pid ) );
+			if ( null !== $age ) {
+				if ( $age >= 18 ) {
+					$adultes++;
+				} else {
+					$enfants++;
+				}
+			}
+
+			$sexe = $this->sexe_from( get_field( 'civilite', $pid ) );
+			if ( 'g' === $sexe ) {
+				$hommes++;
+			} elseif ( 'f' === $sexe ) {
+				$femmes++;
+			}
+		}
+
+		// Cours : validés (statut « confirme ») et en attente, tous dossiers confondus.
+		$cours_valides = 0;
+		$cours_attente = 0;
+		if ( $adh_ids ) {
+			$cours_valides = count( get_posts( array(
+				'post_type' => TCM_CPT_INSCRIPTION, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'no_found_rows' => true,
+				'meta_query' => array( 'relation' => 'AND',
+					array( 'key' => 'adherent', 'value' => $adh_ids, 'compare' => 'IN' ),
+					array( 'key' => 'statut', 'value' => 'confirme' ),
+				),
+			) ) );
+			$cours_attente = count( get_posts( array(
+				'post_type' => TCM_CPT_INSCRIPTION, 'post_status' => 'publish', 'posts_per_page' => -1, 'fields' => 'ids', 'no_found_rows' => true,
+				'meta_query' => array( 'relation' => 'AND',
+					array( 'key' => 'adherent', 'value' => $adh_ids, 'compare' => 'IN' ),
+					array( 'key' => 'statut', 'value' => 'attente' ),
+				),
+			) ) );
 		}
 
 		$inc_tax   = $saison_tax;
@@ -399,11 +548,18 @@ class TCM_Dashboard {
 		}
 
 		return array(
-			'personnes'  => (float) count( $persons ),
-			'adhesions'  => (float) count( $adh_ids ),
-			'incomplets' => (float) count( $incomplets ),
-			'adoc'       => (float) count( $adoc ),
-			'encaisse'   => $encaisse,
+			'personnes'     => (float) count( $persons ),
+			'adhesions'     => (float) count( $adh_ids ),
+			'complets'      => (float) count( $adh_complet ),
+			'adultes'       => (float) $adultes,
+			'enfants'       => (float) $enfants,
+			'femmes'        => (float) $femmes,
+			'hommes'        => (float) $hommes,
+			'cours_valides' => (float) $cours_valides,
+			'cours_attente' => (float) $cours_attente,
+			'incomplets'    => (float) count( $incomplets ),
+			'adoc'          => (float) count( $adoc ),
+			'encaisse'      => $encaisse,
 		);
 	}
 
