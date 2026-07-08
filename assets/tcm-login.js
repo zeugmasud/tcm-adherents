@@ -39,42 +39,13 @@
 		openModal();
 	});
 
-	// 3. Modale : fermeture + soumission AJAX.
+	// 3. Modale : fermeture. La soumission part NATIVEMENT vers wp-login.php
+	// (mécanisme de cookie WordPress standard, fiable derrière un proxy) : on ne
+	// fait plus de login AJAX (le cookie posé via admin-ajax n'était pas reconnu).
 	if (modal) {
 		modal.addEventListener('click', function (e) {
 			if (e.target === modal || e.target.closest('.tcm-login-close')) { closeModal(); }
 		});
-		var form = modal.querySelector('form');
-		if (form) {
-			form.addEventListener('submit', function (e) {
-				e.preventDefault();
-				var err = modal.querySelector('.tcm-login-err');
-				err.textContent = '';
-				var btn = form.querySelector('button[type="submit"]');
-				btn.disabled = true;
-				var data = new URLSearchParams();
-				data.set('action', 'tcm_login');
-				data.set('nonce', C.nonce || '');
-				data.set('log', form.log.value);
-				data.set('pwd', form.pwd.value);
-				if (form.remember && form.remember.checked) { data.set('remember', '1'); }
-				fetch(C.ajax, {
-					method: 'POST', credentials: 'same-origin',
-					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-					body: data.toString()
-				})
-					.then(function (r) { return r.json(); })
-					.then(function (j) {
-						if (j && j.success) {
-							window.location.href = (j.data && j.data.redirect) || dash;
-						} else {
-							err.textContent = (j && j.data && j.data.message) || 'Connexion impossible.';
-							btn.disabled = false;
-						}
-					})
-					.catch(function () { err.textContent = 'Erreur réseau, réessayez.'; btn.disabled = false; });
-			});
-		}
 	}
 
 	document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeModal(); } });

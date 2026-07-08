@@ -61,14 +61,15 @@ class TCM_Front_Login {
 		<button type="button" class="tcm-login-close" aria-label="Fermer">&times;</button>
 		<h3><?php echo esc_html( $this->cta_label() ); ?></h3>
 		<p class="tcm-login-sub">Connectez-vous pour accéder à votre tableau de bord.</p>
-		<form class="tcm-login-form">
+		<form class="tcm-login-form" method="post" action="<?php echo esc_url( site_url( 'wp-login.php', 'login_post' ) ); ?>">
+			<input type="hidden" name="redirect_to" value="<?php echo esc_url( $this->dashboard_url() ); ?>">
 			<label>Identifiant ou e-mail
 				<input type="text" name="log" autocomplete="username" required>
 			</label>
 			<label>Mot de passe
 				<input type="password" name="pwd" autocomplete="current-password" required>
 			</label>
-			<label class="tcm-login-remember"><input type="checkbox" name="remember"> Se souvenir de moi</label>
+			<label class="tcm-login-remember"><input type="checkbox" name="rememberme" value="forever"> Se souvenir de moi</label>
 			<div class="tcm-login-err" role="alert"></div>
 			<button type="submit" class="tcm-login-submit">Se connecter</button>
 			<a class="tcm-login-forgot" href="<?php echo esc_url( wp_lostpassword_url() ); ?>">Mot de passe oublié ?</a>
