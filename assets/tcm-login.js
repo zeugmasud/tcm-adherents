@@ -46,6 +46,15 @@
 		modal.addEventListener('click', function (e) {
 			if (e.target === modal || e.target.closest('.tcm-login-close')) { closeModal(); }
 		});
+		// wp-login.php exige le cookie de test WordPress (posé normalement au chargement
+		// de la page de login). Comme la modale poste en direct, on le pose nous-mêmes
+		// juste avant l'envoi, sinon wp-login ré-affiche le formulaire au lieu de connecter.
+		var loginForm = modal.querySelector('form');
+		if (loginForm) {
+			loginForm.addEventListener('submit', function () {
+				document.cookie = 'wordpress_test_cookie=WP Cookie check; path=/';
+			});
+		}
 	}
 
 	document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeModal(); } });
