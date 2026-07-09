@@ -26,6 +26,57 @@ class TCM_Maintenance {
 		add_action( 'admin_post_tcm_normalize_all', array( $this, 'handle_normalize' ) );
 		add_action( 'admin_post_tcm_adoc_backfill', array( $this, 'handle_backfill' ) );
 		add_action( 'admin_post_tcm_adoc_import', array( $this, 'handle_import' ) );
+		add_action( 'admin_post_tcm_dedup_adherents', array( $this, 'handle_dedup' ) );
+	}
+
+	/**
+	 * Supprime les adhésions en double (même personne + saison) : garde la fiche
+	 * la plus complète (plus de règlements, sinon plus ancien id), supprime les
+	 * autres AVEC leurs règlements et commandes rattachés.
+	 */
+	public function handle_dedup(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_dedup_adherents' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		@set_time_limit( 0 );
+
+		$removed_adh = 0;
+		$removed_reg = 0;
+		$removed_cmd = 0;
+
+		foreach ( $this->season_duplicates() as $d ) {
+			$aids = array_map( 'intval', $d['adherents'] );
+			// Tri : le plus de règlements d'abord, puis le plus petit id.
+			usort( $aids, function ( $a, $b ) {
+				$na = $this->count_linked( TCM_CPT_REGLEMENT, $a );
+				$nb = $this->count_linked( TCM_CPT_REGLEMENT, $b );
+				if ( $na !== $nb ) {
+					return $nb <=> $na;
+				}
+				return $a <=> $b;
+			} );
+			array_shift( $aids ); // on garde le premier (le plus complet)
+			foreach ( $aids as $aid ) {
+				foreach ( array( TCM_CPT_REGLEMENT, TCM_CPT_COMMANDE ) as $type ) {
+					$links = get_posts( array( 'post_type' => $type, 'post_status' => 'any', 'posts_per_page' => -1, 'fields' => 'ids', 'no_found_rows' => true, 'meta_key' => 'adherent', 'meta_value' => $aid ) );
+					foreach ( $links as $lid ) {
+						wp_delete_post( $lid, true );
+						if ( TCM_CPT_REGLEMENT === $type ) { $removed_reg++; } else { $removed_cmd++; }
+					}
+				}
+				wp_delete_post( $aid, true );
+				$removed_adh++;
+			}
+		}
+
+		set_transient( 'tcm_maintenance_report', array( 'msg' => sprintf( 'Doublons supprimés : %d adhésions, %d règlements, %d commandes.', $removed_adh, $removed_reg, $removed_cmd ) ), 60 );
+		wp_safe_redirect( admin_url( 'admin.php?page=tcm-maintenance' ) );
+		exit;
+	}
+
+	/** Compte les posts d'un type liés à un adhérent (meta adherent). */
+	private function count_linked( string $type, int $adherent_id ): int {
+		return count( (array) get_posts( array( 'post_type' => $type, 'post_status' => 'any', 'posts_per_page' => -1, 'fields' => 'ids', 'no_found_rows' => true, 'meta_key' => 'adherent', 'meta_value' => $adherent_id ) ) );
 	}
 
 	public function menu(): void {
@@ -91,6 +142,11 @@ class TCM_Maintenance {
 				echo '</td></tr>';
 			}
 			echo '</tbody></table>';
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" onsubmit="return confirm(\'Supprimer les adhésions en double (garde la plus complète) et leurs règlements/commandes rattachés ?\');">';
+			wp_nonce_field( 'tcm_dedup_adherents' );
+			echo '<input type="hidden" name="action" value="tcm_dedup_adherents">';
+			submit_button( __( 'Supprimer les doublons (garder la fiche la plus complète)', 'tcm-adherents' ), 'delete', 'submit', false );
+			echo '</form>';
 		}
 
 		echo '</div>';

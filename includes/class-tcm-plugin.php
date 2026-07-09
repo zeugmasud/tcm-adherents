@@ -50,6 +50,7 @@ final class TCM_Plugin {
 		( new TCM_Normalize() )->hooks();
 		( new TCM_Inscription() )->hooks();
 		( new TCM_Import_Full() )->hooks();
+		( new TCM_Import_History() )->hooks();
 		( new TCM_Maintenance() )->hooks();
 		( new TCM_Front_Login() )->hooks();
 
