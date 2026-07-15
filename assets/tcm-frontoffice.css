@@ -303,7 +303,7 @@ a.tcm-stat.is-link .tcm-stat-title::after { content: " ›"; opacity: .5; }
 	font-family: var(--tcm-serif);
 	font-size: 24px; font-weight: 600;
 }
-.tcm-badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.tcm-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
 .tcm-badge {
 	display: inline-block;
 	padding: 4px 12px;
@@ -316,6 +316,14 @@ a.tcm-stat.is-link .tcm-stat-title::after { content: " ›"; opacity: .5; }
 .tcm-badge.tcm-incomplet { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
 .tcm-badge-ok,
 .tcm-badge.tcm-complet { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
+/* Badge « Dossier » cliquable (bascule complet / incomplet) */
+.tcm-badge-form { display: inline-flex; margin: 0; padding: 0; }
+button.tcm-badge-toggle { border: 0; font: inherit; line-height: inherit; border-radius: 999px; cursor: pointer; transition: filter .12s ease, box-shadow .12s ease; }
+button.tcm-badge-toggle::after { content: "\2009\270E"; opacity: .55; }
+button.tcm-badge-toggle:hover { filter: brightness(.96); box-shadow: 0 1px 5px rgba(16,24,40,.18); }
+/* Fond vert = dossier complet ; fond rose = dossier incomplet. */
+button.tcm-badge-toggle.tcm-badge-ok   { background: #d5f2e1; color: #157a48; }
+button.tcm-badge-toggle.tcm-badge-warn { background: #fbd7e6; color: #b02a67; }
 .tcm-fiche-actions { flex: 0 0 auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Onglets ------------------------------------------------------------------ */

@@ -70,7 +70,7 @@ class TCM_Maintenance {
 		}
 
 		set_transient( 'tcm_maintenance_report', array( 'msg' => sprintf( 'Doublons supprimés : %d adhésions, %d règlements, %d commandes.', $removed_adh, $removed_reg, $removed_cmd ) ), 60 );
-		wp_safe_redirect( admin_url( 'admin.php?page=tcm-maintenance' ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=tcm-maintenance&check_dupes=1' ) );
 		exit;
 	}
 
@@ -124,29 +124,37 @@ class TCM_Maintenance {
 		submit_button( __( 'Importer & compléter depuis ADOC', 'tcm-adherents' ), 'primary', 'submit', false );
 		echo '</form>';
 
-		// --- Doublons de saison (lecture seule) ---------------------------
+		// --- Doublons de saison (contrôle à la demande) -------------------
 		echo '<hr><h2>' . esc_html__( 'Doublons (une personne avec plusieurs fiches sur une même saison)', 'tcm-adherents' ) . '</h2>';
-		$dups = $this->season_duplicates();
-		if ( ! $dups ) {
-			echo '<p>' . esc_html__( 'Aucun doublon détecté.', 'tcm-adherents' ) . '</p>';
+		$check_url = admin_url( 'admin.php?page=tcm-maintenance&check_dupes=1' );
+		if ( empty( $_GET['check_dupes'] ) ) {
+			echo '<p>' . esc_html__( 'Vérifie si une même personne possède plusieurs fiches adhérent sur une même saison.', 'tcm-adherents' ) . '</p>';
+			echo '<a class="button button-primary" href="' . esc_url( $check_url ) . '#doublons">' . esc_html__( 'Contrôler les doublons', 'tcm-adherents' ) . '</a>';
 		} else {
-			$bo     = get_page_by_path( 'back-office-adherents' );
-			$bo_url = $bo ? get_permalink( $bo ) : home_url( '/back-office-adherents/' );
-			echo '<p>' . esc_html__( 'Ouvrez chaque fiche en double et supprimez celle à retirer dans le back-office.', 'tcm-adherents' ) . '</p>';
-			echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>Saison</th><th>Personne</th><th>Fiches adhérent</th></tr></thead><tbody>';
-			foreach ( $dups as $d ) {
-				echo '<tr><td>' . esc_html( $d['saison'] ) . '</td><td>' . esc_html( $d['name'] ) . '</td><td>';
-				foreach ( $d['adherents'] as $aid ) {
-					echo '<a href="' . esc_url( add_query_arg( 'id', $aid, $bo_url ) ) . '" target="_blank">#' . (int) $aid . '</a> ';
+			$dups = $this->season_duplicates();
+			echo '<p><a class="button" href="' . esc_url( $check_url ) . '">' . esc_html__( 'Relancer le contrôle', 'tcm-adherents' ) . '</a></p>';
+			if ( ! $dups ) {
+				echo '<p><strong>' . esc_html__( 'Aucun doublon détecté.', 'tcm-adherents' ) . '</strong></p>';
+			} else {
+				$bo     = get_page_by_path( 'back-office-adherents' );
+				$bo_url = $bo ? get_permalink( $bo ) : home_url( '/back-office-adherents/' );
+				echo '<p>' . esc_html( sprintf( _n( '%d doublon détecté.', '%d doublons détectés.', count( $dups ), 'tcm-adherents' ), count( $dups ) ) ) . ' '
+					. esc_html__( 'Vous pouvez les supprimer automatiquement (la fiche la plus complète est conservée) ou ouvrir chaque fiche pour trancher manuellement.', 'tcm-adherents' ) . '</p>';
+				echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>Saison</th><th>Personne</th><th>Fiches adhérent</th></tr></thead><tbody>';
+				foreach ( $dups as $d ) {
+					echo '<tr><td>' . esc_html( $d['saison'] ) . '</td><td>' . esc_html( $d['name'] ) . '</td><td>';
+					foreach ( $d['adherents'] as $aid ) {
+						echo '<a href="' . esc_url( add_query_arg( 'id', $aid, $bo_url ) ) . '" target="_blank">#' . (int) $aid . '</a> ';
+					}
+					echo '</td></tr>';
 				}
-				echo '</td></tr>';
+				echo '</tbody></table>';
+				echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" onsubmit="return confirm(\'Supprimer les adhésions en double (garde la plus complète) et leurs règlements/commandes rattachés ?\');">';
+				wp_nonce_field( 'tcm_dedup_adherents' );
+				echo '<input type="hidden" name="action" value="tcm_dedup_adherents">';
+				submit_button( __( 'Supprimer les doublons (garder la fiche la plus complète)', 'tcm-adherents' ), 'delete', 'submit', false );
+				echo '</form>';
 			}
-			echo '</tbody></table>';
-			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" onsubmit="return confirm(\'Supprimer les adhésions en double (garde la plus complète) et leurs règlements/commandes rattachés ?\');">';
-			wp_nonce_field( 'tcm_dedup_adherents' );
-			echo '<input type="hidden" name="action" value="tcm_dedup_adherents">';
-			submit_button( __( 'Supprimer les doublons (garder la fiche la plus complète)', 'tcm-adherents' ), 'delete', 'submit', false );
-			echo '</form>';
 		}
 
 		echo '</div>';

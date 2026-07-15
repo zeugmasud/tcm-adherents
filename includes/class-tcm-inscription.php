@@ -41,6 +41,10 @@ class TCM_Inscription {
 			'show_changement'  => 1,
 			'require_address'  => 0,
 			'require_photo'    => 1,
+			// reCAPTCHA v3 (anti-spam Google). Vide = désactivé.
+			'recaptcha_site'      => '',
+			'recaptcha_secret'    => '',
+			'recaptcha_threshold' => 0.5,
 			// E-mails.
 			'mail_from'           => 'contact@tcmimet.fr',
 			'mail_from_name'      => 'Tennis Club de Mimet',
@@ -81,6 +85,7 @@ class TCM_Inscription {
 				'consent' => 'Merci d’accepter le règlement intérieur, l’information assurance et de répondre au droit à l’image.',
 				'doublon' => 'Une inscription existe déjà pour cette personne sur la saison ' . $saison . '.',
 				'nonce'   => 'Session expirée, merci de renvoyer le formulaire.',
+				'captcha' => 'La vérification anti-spam a échoué. Merci de réessayer (activez le JavaScript).',
 				'tech'    => 'Une erreur technique est survenue, merci de réessayer.',
 			);
 			$e = isset( $_GET['e'] ) ? sanitize_key( wp_unslash( $_GET['e'] ) ) : 'tech';
@@ -151,10 +156,16 @@ class TCM_Inscription {
 		$this->field_radio( 'autorisation_photo', 'Droit à l’image : j’autorise le TC Mimet à utiliser les photos prises de moi-même ou de mon enfant pour communiquer (site, presse locale), à titre gracieux.', array( 'oui' => 'Oui, j’autorise', 'non' => 'Non' ), (bool) $s['require_photo'] );
 		echo '</fieldset>';
 
+		// reCAPTCHA v3 : champ caché qui portera le token (rempli en JS avant l'envoi).
+		if ( '' !== trim( (string) $s['recaptcha_site'] ) ) {
+			echo '<input type="hidden" name="tcm_recaptcha_token" value="">';
+		}
+
 		echo '<div class="tcm-insc-submit"><button type="submit" class="tcm-insc-btn">' . esc_html( $s['submit_label'] ) . '</button></div>';
 		echo '</form>';
 
 		$this->inline_script();
+		$this->recaptcha_script( (string) $s['recaptcha_site'] );
 
 		echo '</div>';
 		return (string) ob_get_clean();
@@ -203,6 +214,71 @@ class TCM_Inscription {
 })();
 </script>
 		<?php
+	}
+
+	/** Charge reCAPTCHA v3 et remplit le token juste avant l'envoi natif du formulaire. */
+	private function recaptcha_script( string $site ): void {
+		$site = trim( $site );
+		if ( '' === $site ) {
+			return;
+		}
+		?>
+<script src="https://www.google.com/recaptcha/api.js?render=<?php echo rawurlencode( $site ); ?>"></script>
+<script>
+(function(){
+	var site = <?php echo wp_json_encode( $site ); // phpcs:ignore ?>;
+	var form = document.querySelector('.tcm-insc .tcm-insc-form');
+	var field = form && form.querySelector('[name="tcm_recaptcha_token"]');
+	if(!form || !field){ return; }
+	var done = false;
+	form.addEventListener('submit', function(e){
+		if(done){ return; } // 2e passage : on laisse partir.
+		e.preventDefault();
+		if(typeof grecaptcha === 'undefined'){ done = true; form.submit(); return; }
+		grecaptcha.ready(function(){
+			grecaptcha.execute(site, {action:'inscription'}).then(function(token){
+				field.value = token || '';
+				done = true; form.submit();
+			}).catch(function(){ done = true; form.submit(); });
+		});
+	});
+})();
+</script>
+		<?php
+	}
+
+	/**
+	 * Vérifie le token reCAPTCHA v3 côté serveur. Retourne true si l'anti-spam est
+	 * désactivé (pas de secret) ou si le score est suffisant. En cas d'échec réseau
+	 * vers Google, on ne bloque pas l'inscription (tolérance).
+	 */
+	private function recaptcha_ok( array $s ): bool {
+		$secret = trim( (string) ( $s['recaptcha_secret'] ?? '' ) );
+		if ( '' === $secret ) {
+			return true;
+		}
+		$token = isset( $_POST['tcm_recaptcha_token'] ) ? sanitize_text_field( wp_unslash( $_POST['tcm_recaptcha_token'] ) ) : '';
+		if ( '' === $token ) {
+			return false;
+		}
+		$resp = wp_remote_post( 'https://www.google.com/recaptcha/api/siteverify', array(
+			'timeout' => 8,
+			'body'    => array(
+				'secret'   => $secret,
+				'response' => $token,
+				'remoteip' => isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '',
+			),
+		) );
+		if ( is_wp_error( $resp ) ) {
+			return true; // Google injoignable : on laisse passer plutôt que bloquer une vraie inscription.
+		}
+		$data = json_decode( (string) wp_remote_retrieve_body( $resp ), true );
+		if ( ! is_array( $data ) || empty( $data['success'] ) ) {
+			return false;
+		}
+		$threshold = (float) ( $s['recaptcha_threshold'] ?? 0.5 );
+		$score     = isset( $data['score'] ) ? (float) $data['score'] : 0.0;
+		return $score >= $threshold;
 	}
 
 	private function field( string $name, string $label, string $type = 'text', bool $required = false, string $extra_class = '' ): void {
@@ -260,6 +336,12 @@ class TCM_Inscription {
 		$tel    = TCM_Normalize::phone( sanitize_text_field( wp_unslash( $_POST['telephone'] ?? '' ) ) );
 
 		$s          = $this->settings();
+
+		// Anti-spam reCAPTCHA v3 (si configuré) : vérification du score côté serveur.
+		if ( ! $this->recaptcha_ok( $s ) ) {
+			$this->back( $redirect, 'err', 'captcha' );
+		}
+
 		$deja       = sanitize_text_field( wp_unslash( $_POST['deja_adherent'] ?? '' ) );
 		$changement = ( 'oui' === sanitize_text_field( wp_unslash( $_POST['changement'] ?? '' ) ) );
 		// Le bloc coordonnées est présenté pour une nouvelle inscription ou un changement déclaré.
@@ -514,6 +596,14 @@ class TCM_Inscription {
 		echo '<label><input type="checkbox" name="require_photo" value="1" ' . checked( $s['require_photo'], 1, false ) . '> Rendre la réponse « droit à l’image » obligatoire</label>';
 		echo '</td></tr>';
 
+		// reCAPTCHA v3.
+		echo '<tr><th>reCAPTCHA v3 (anti-spam Google)</th><td>';
+		echo '<p style="margin:0 0 4px;"><strong>Clé de site</strong></p><input type="text" name="recaptcha_site" value="' . esc_attr( $s['recaptcha_site'] ) . '" class="large-text" autocomplete="off">';
+		echo '<p style="margin:12px 0 4px;"><strong>Clé secrète</strong></p><input type="text" name="recaptcha_secret" value="' . esc_attr( $s['recaptcha_secret'] ) . '" class="large-text" autocomplete="off">';
+		echo '<p style="margin:12px 0 4px;"><strong>Seuil de score</strong> (0 = tout accepter, 1 = très strict)</p><input type="number" name="recaptcha_threshold" value="' . esc_attr( (string) $s['recaptcha_threshold'] ) . '" min="0" max="1" step="0.1" class="small-text">';
+		echo '<p class="description">Laissez les clés vides pour désactiver. Clés à créer sur <a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">google.com/recaptcha/admin</a> (type <strong>reCAPTCHA v3</strong>, domaine <code>' . esc_html( wp_parse_url( home_url(), PHP_URL_HOST ) ) . '</code>). Score conseillé : 0.5.</p>';
+		echo '</td></tr>';
+
 		echo '<tr><th><label for="ti-st">Titre du message de confirmation</label></th><td>'
 			. '<input type="text" id="ti-st" name="success_title" value="' . esc_attr( $s['success_title'] ) . '" class="regular-text"></td></tr>';
 		echo '<tr><th><label for="ti-sm">Message de confirmation</label></th><td>'
@@ -557,6 +647,9 @@ class TCM_Inscription {
 			'show_changement'  => empty( $_POST['show_changement'] ) ? 0 : 1,
 			'require_address'  => empty( $_POST['require_address'] ) ? 0 : 1,
 			'require_photo'    => empty( $_POST['require_photo'] ) ? 0 : 1,
+			'recaptcha_site'      => sanitize_text_field( wp_unslash( $_POST['recaptcha_site'] ?? '' ) ),
+			'recaptcha_secret'    => sanitize_text_field( wp_unslash( $_POST['recaptcha_secret'] ?? '' ) ),
+			'recaptcha_threshold' => max( 0, min( 1, (float) ( $_POST['recaptcha_threshold'] ?? 0.5 ) ) ),
 			'success_title'    => sanitize_text_field( wp_unslash( $_POST['success_title'] ?? '' ) ),
 			'success_msg'      => sanitize_textarea_field( wp_unslash( $_POST['success_msg'] ?? '' ) ),
 			'mail_from'           => sanitize_email( wp_unslash( $_POST['mail_from'] ?? '' ) ),

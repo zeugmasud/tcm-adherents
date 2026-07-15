@@ -625,12 +625,25 @@ class TCM_Dashboard {
 		echo '<div class="tcm-avatar">' . esc_html( $initiales ) . '</div>';
 		echo '<div class="tcm-fiche-ident">';
 		echo '<h2>' . esc_html( $nom ) . '</h2>';
-		echo '<p class="tcm-badges">';
+		echo '<div class="tcm-badges">';
 		echo '<span class="tcm-badge tcm-badge-saison">Saison ' . esc_html( $saison ) . '</span>';
-		echo '<span class="tcm-badge ' . ( 'Complet' === $dossier ? 'tcm-badge-ok' : 'tcm-badge-warn' ) . '">Dossier ' . esc_html( $dossier ) . '</span>';
+		// Badge dossier cliquable : bascule complet / incomplet.
+		$cur_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		$redir   = add_query_arg( array( 'id' => $id, 'saison' => $saison ), $this->bo_url() );
+		$complet = ( 'Complet' === $dossier );
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="tcm-badge-form">';
+		wp_nonce_field( 'tcm_dossier_toggle' );
+		echo '<input type="hidden" name="action" value="tcm_dossier_toggle">';
+		echo '<input type="hidden" name="adherent" value="' . (int) $id . '">';
+		echo '<input type="hidden" name="cur_tab" value="' . esc_attr( $cur_tab ) . '">';
+		echo '<input type="hidden" name="redirect" value="' . esc_url( $redir ) . '">';
+		echo '<button type="submit" class="tcm-badge tcm-badge-toggle ' . ( $complet ? 'tcm-badge-ok' : 'tcm-badge-warn' ) . '" title="'
+			. esc_attr( $complet ? 'Cliquer pour repasser le dossier en incomplet' : 'Cliquer pour valider le dossier complet' )
+			. '">Dossier ' . esc_html( $dossier ) . '</button>';
+		echo '</form>';
 		if ( get_field( 'mineur', $id ) ) { echo '<span class="tcm-badge">Mineur</span>'; }
 		if ( get_field( 'adoc_valide', $id ) ) { echo '<span class="tcm-badge tcm-badge-ok">ADOC ✓</span>'; }
-		echo '</p>';
+		echo '</div>';
 		echo '</div>';
 		echo '<div class="tcm-fiche-actions">';
 		echo '<a class="button button-primary tcm-act" href="' . $edit_adh . '" title="Éditer l’adhésion" aria-label="Éditer l’adhésion">' . $this->icon_edit() . '<span class="tcm-act-label">Éditer l’adhésion</span></a> ';

@@ -20,6 +20,20 @@ class TCM_Crud {
 		add_action( 'admin_post_tcm_reg_delete', array( $this, 'reg_delete' ) );
 		add_action( 'admin_post_tcm_cmd_save', array( $this, 'cmd_save' ) );
 		add_action( 'admin_post_tcm_cmd_delete', array( $this, 'cmd_delete' ) );
+		add_action( 'admin_post_tcm_dossier_toggle', array( $this, 'dossier_toggle' ) );
+	}
+
+	/** Bascule « dossier complet / incomplet » depuis la fiche (clic sur le badge). */
+	public function dossier_toggle(): void {
+		$this->guard( 'tcm_dossier_toggle' );
+		$adh = (int) ( $_POST['adherent'] ?? 0 );
+		if ( $adh && get_post_type( $adh ) === TCM_CPT_ADHERENT ) {
+			$new = get_field( 'dossier_complet', $adh ) ? 0 : 1;
+			update_field( 'dossier_complet', $new, $adh );
+			TCM_Taxonomies::sync_adherent( $adh );
+		}
+		$tab = isset( $_POST['cur_tab'] ) ? sanitize_key( wp_unslash( $_POST['cur_tab'] ) ) : 'coordonnees';
+		$this->back( $tab ?: 'coordonnees', 'saved' );
 	}
 
 	private function canaux(): array {
