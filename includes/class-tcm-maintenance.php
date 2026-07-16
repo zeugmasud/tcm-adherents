@@ -69,6 +69,10 @@ class TCM_Maintenance {
 			}
 		}
 
+		if ( $removed_adh || $removed_reg || $removed_cmd ) {
+			TCM_Log::add( 'merge', 'maintenance', 0, 'Dédoublonnage', sprintf( '%d adhésions, %d règlements, %d commandes supprimés', $removed_adh, $removed_reg, $removed_cmd ) );
+		}
+
 		set_transient( 'tcm_maintenance_report', array( 'msg' => sprintf( 'Doublons supprimés : %d adhésions, %d règlements, %d commandes.', $removed_adh, $removed_reg, $removed_cmd ) ), 60 );
 		wp_safe_redirect( admin_url( 'admin.php?page=tcm-maintenance&check_dupes=1' ) );
 		exit;
@@ -240,6 +244,8 @@ class TCM_Maintenance {
 				if ( $nv !== $v ) { update_field( $f, $nv, $aid ); }
 			}
 		}
+
+		TCM_Log::add( 'normalize', 'maintenance', 0, 'Normalisation', sprintf( '%d fiches personnes mises à jour', $touched ) );
 
 		$this->finish( sprintf( 'Normalisation terminée : %d fiches personnes mises à jour (sur %d).', $touched, count( $persons ) ) );
 	}

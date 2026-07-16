@@ -104,6 +104,11 @@ class TCM_Facture {
 		$ok = wp_mail( $data['email'], $subject, $body, $headers, array( $tmp ) );
 		@unlink( $tmp ); // phpcs:ignore
 
+		if ( $ok ) {
+			$adh = (int) get_field( 'adherent', $cmd );
+			TCM_Log::add( 'send', 'commande', $adh ?: $cmd, $adh ? TCM_Log::person_label( $adh ) : '#' . $cmd, 'Attestation envoyée à ' . $data['email'] );
+		}
+
 		wp_safe_redirect( add_query_arg( 'facture', $ok ? 'sent' : 'error', $redirect ) );
 		exit;
 	}

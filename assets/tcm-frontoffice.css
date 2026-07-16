@@ -479,6 +479,46 @@ button.tcm-badge-toggle.tcm-badge-warn { background: #fbd7e6; color: #b02a67; }
 .tcm-fill-ok { background: var(--tcm-ok-bg); color: var(--tcm-ok); }
 .tcm-fill-warn { background: var(--tcm-warn-bg); color: var(--tcm-warn); }
 .tcm-fill-full { background: #fde2e1; color: #b42318; }
+/* ---- Vue agenda (grille horaire hebdo, 6 colonnes) ---- */
+.tcm-agenda { margin-top: 4px; }
+.tcm-agenda-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tcm-agenda-grid {
+	display: grid;
+	grid-template-columns: 54px repeat(6, minmax(120px, 1fr));
+	min-width: 760px;
+	background: var(--tcm-surface);
+	border: 1px solid var(--tcm-border);
+	border-radius: var(--tcm-radius);
+	box-shadow: var(--tcm-shadow);
+	overflow: hidden;
+}
+.tcm-agenda-colhead {
+	height: 38px; display: flex; align-items: center; justify-content: center;
+	font-weight: 600; font-size: 13px; color: var(--tcm-ink, #101828);
+	background: #f7f9fc; border-bottom: 1px solid var(--tcm-border);
+	border-left: 1px solid var(--tcm-border);
+}
+.tcm-agenda-times .tcm-agenda-colhead { border-left: 0; }
+.tcm-agenda-gutter { position: relative; }
+.tcm-agenda-hour {
+	position: absolute; right: 6px; transform: translateY(-50%);
+	font-size: 11px; color: var(--tcm-muted); white-space: nowrap;
+}
+.tcm-agenda-body { position: relative; border-left: 1px solid var(--tcm-border); }
+.tcm-agenda-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #eceef2; }
+.tcm-agenda-event {
+	position: absolute; box-sizing: border-box;
+	display: flex; flex-direction: column; gap: 1px;
+	padding: 3px 6px; border-radius: 8px; overflow: hidden;
+	font-size: 11px; line-height: 1.25; text-decoration: none;
+	border: 1px solid rgba(16,24,40,.08);
+	transition: filter .12s ease, box-shadow .12s ease;
+}
+.tcm-agenda-event:hover { filter: brightness(.97); box-shadow: 0 2px 8px rgba(16,24,40,.16); z-index: 2; }
+.tcm-agenda-ev-time { font-weight: 700; }
+.tcm-agenda-ev-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tcm-agenda-ev-meta { opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tcm-agenda-ev-cap { margin-top: auto; align-self: flex-start; font-weight: 700; opacity: .95; }
 .tcm-planning-detail {
 	background: var(--tcm-surface); border: 1px solid var(--tcm-border);
 	border-radius: var(--tcm-radius); box-shadow: var(--tcm-shadow);

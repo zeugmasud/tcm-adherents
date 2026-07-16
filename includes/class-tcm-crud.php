@@ -31,6 +31,7 @@ class TCM_Crud {
 			$new = get_field( 'dossier_complet', $adh ) ? 0 : 1;
 			update_field( 'dossier_complet', $new, $adh );
 			TCM_Taxonomies::sync_adherent( $adh );
+			TCM_Log::add( 'toggle', 'adherent', $adh, TCM_Log::person_label( $adh ), $new ? 'Dossier passé à « Complet »' : 'Dossier repassé à « Incomplet »' );
 		}
 		$tab = isset( $_POST['cur_tab'] ) ? sanitize_key( wp_unslash( $_POST['cur_tab'] ) ) : 'coordonnees';
 		$this->back( $tab ?: 'coordonnees', 'saved' );
@@ -54,12 +55,14 @@ class TCM_Crud {
 		if ( ! $adh || get_post_type( $adh ) !== TCM_CPT_ADHERENT ) {
 			$this->back( 'reglements', 'error' );
 		}
-		$id = ( $rid && get_post_type( $rid ) === TCM_CPT_REGLEMENT )
-			? $rid
-			: wp_insert_post( array( 'post_type' => TCM_CPT_REGLEMENT, 'post_status' => 'publish', 'post_title' => 'Règlement' ) );
+		$is_new = ! ( $rid && get_post_type( $rid ) === TCM_CPT_REGLEMENT );
+		$id     = $is_new
+			? wp_insert_post( array( 'post_type' => TCM_CPT_REGLEMENT, 'post_status' => 'publish', 'post_title' => 'Règlement' ) )
+			: $rid;
 
 		update_field( 'adherent', $adh, $id );
-		update_field( 'montant', $this->to_float( $_POST['montant'] ?? 0 ), $id );
+		$montant = $this->to_float( $_POST['montant'] ?? 0 );
+		update_field( 'montant', $montant, $id );
 		$canal = sanitize_text_field( wp_unslash( $_POST['canal'] ?? '' ) );
 		if ( isset( $this->canaux()[ $canal ] ) ) {
 			update_field( 'canal', $canal, $id );
@@ -70,6 +73,9 @@ class TCM_Crud {
 		}
 		update_field( 'statut', sanitize_text_field( wp_unslash( $_POST['statut'] ?? 'valide' ) ), $id );
 
+		$canal_lbl = $this->canaux()[ $canal ] ?? $canal;
+		TCM_Log::add( $is_new ? 'create' : 'update', 'reglement', $adh, TCM_Log::person_label( $adh ), number_format( (float) $montant, 2, ',', ' ' ) . ' € · ' . $canal_lbl );
+
 		$this->back( 'reglements', 'saved' );
 	}
 
@@ -77,7 +83,10 @@ class TCM_Crud {
 		$this->guard( 'tcm_reg_delete' );
 		$rid = (int) ( $_POST['reg_id'] ?? 0 );
 		if ( $rid && get_post_type( $rid ) === TCM_CPT_REGLEMENT ) {
+			$adh    = (int) get_field( 'adherent', $rid );
+			$detail = number_format( (float) get_field( 'montant', $rid ), 2, ',', ' ' ) . ' €';
 			wp_delete_post( $rid, true );
+			TCM_Log::add( 'delete', 'reglement', $adh, $adh ? TCM_Log::person_label( $adh ) : '#' . $rid, $detail );
 		}
 		$this->back( 'reglements', 'deleted' );
 	}
@@ -89,14 +98,19 @@ class TCM_Crud {
 		if ( ! $adh || get_post_type( $adh ) !== TCM_CPT_ADHERENT ) {
 			$this->back( 'commandes', 'error' );
 		}
-		$id = ( $cid && get_post_type( $cid ) === TCM_CPT_COMMANDE )
-			? $cid
-			: wp_insert_post( array( 'post_type' => TCM_CPT_COMMANDE, 'post_status' => 'publish', 'post_title' => 'Commande' ) );
+		$is_new = ! ( $cid && get_post_type( $cid ) === TCM_CPT_COMMANDE );
+		$id     = $is_new
+			? wp_insert_post( array( 'post_type' => TCM_CPT_COMMANDE, 'post_status' => 'publish', 'post_title' => 'Commande' ) )
+			: $cid;
 
 		update_field( 'adherent', $adh, $id );
-		update_field( 'libelle', sanitize_text_field( wp_unslash( $_POST['libelle'] ?? '' ) ), $id );
-		update_field( 'montant', $this->to_float( $_POST['montant'] ?? 0 ), $id );
+		$libelle = sanitize_text_field( wp_unslash( $_POST['libelle'] ?? '' ) );
+		update_field( 'libelle', $libelle, $id );
+		$montant = $this->to_float( $_POST['montant'] ?? 0 );
+		update_field( 'montant', $montant, $id );
 		update_field( 'saison', sanitize_text_field( wp_unslash( $_POST['saison'] ?? '' ) ), $id );
+
+		TCM_Log::add( $is_new ? 'create' : 'update', 'commande', $adh, TCM_Log::person_label( $adh ), trim( $libelle . ' · ' . number_format( (float) $montant, 2, ',', ' ' ) . ' €' ) );
 
 		$this->back( 'commandes', 'saved' );
 	}
@@ -105,7 +119,10 @@ class TCM_Crud {
 		$this->guard( 'tcm_cmd_delete' );
 		$cid = (int) ( $_POST['cmd_id'] ?? 0 );
 		if ( $cid && get_post_type( $cid ) === TCM_CPT_COMMANDE ) {
+			$adh    = (int) get_field( 'adherent', $cid );
+			$detail = trim( (string) get_field( 'libelle', $cid ) . ' · ' . number_format( (float) get_field( 'montant', $cid ), 2, ',', ' ' ) . ' €' );
 			wp_delete_post( $cid, true );
+			TCM_Log::add( 'delete', 'commande', $adh, $adh ? TCM_Log::person_label( $adh ) : '#' . $cid, $detail );
 		}
 		$this->back( 'commandes', 'deleted' );
 	}

@@ -159,10 +159,11 @@ class TCM_Planning {
 
 	public function creneau_save(): void {
 		$this->guard( 'tcm_creneau_save' );
-		$cid = (int) ( $_POST['creneau_id'] ?? 0 );
-		$id  = ( $cid && get_post_type( $cid ) === TCM_CPT_CRENEAU )
-			? $cid
-			: wp_insert_post( array( 'post_type' => TCM_CPT_CRENEAU, 'post_status' => 'publish', 'post_title' => 'Créneau' ) );
+		$cid    = (int) ( $_POST['creneau_id'] ?? 0 );
+		$is_new = ! ( $cid && get_post_type( $cid ) === TCM_CPT_CRENEAU );
+		$id     = $is_new
+			? wp_insert_post( array( 'post_type' => TCM_CPT_CRENEAU, 'post_status' => 'publish', 'post_title' => 'Créneau' ) )
+			: $cid;
 
 		foreach ( array( 'jour', 'heure_debut', 'heure_fin', 'type_cours', 'entraineur', 'saison' ) as $f ) {
 			update_field( $f, sanitize_text_field( wp_unslash( $_POST[ $f ] ?? '' ) ), $id );
@@ -173,6 +174,8 @@ class TCM_Planning {
 		$titre = trim( sanitize_text_field( wp_unslash( $_POST['type_cours'] ?? 'Créneau' ) ) . ' — ' . $jour . ' ' . sanitize_text_field( wp_unslash( $_POST['heure_debut'] ?? '' ) ) );
 		wp_update_post( array( 'ID' => $id, 'post_title' => $titre ?: 'Créneau' ) );
 
+		TCM_Log::add( $is_new ? 'create' : 'update', 'creneau', $id, get_the_title( $id ), 'Saison ' . sanitize_text_field( wp_unslash( $_POST['saison'] ?? '' ) ) );
+
 		$u = isset( $_POST['redirect'] ) ? esc_url_raw( wp_unslash( $_POST['redirect'] ) ) : home_url();
 		wp_safe_redirect( add_query_arg( array( 'creneau' => $id, 'msg' => 'saved' ), $u ) );
 		exit;
@@ -182,10 +185,13 @@ class TCM_Planning {
 		$this->guard( 'tcm_creneau_delete' );
 		$cid = (int) ( $_POST['creneau_id'] ?? 0 );
 		if ( $cid && get_post_type( $cid ) === TCM_CPT_CRENEAU ) {
-			foreach ( $this->inscrits( $cid ) as $i ) {
+			$titre   = get_the_title( $cid );
+			$inscrits = $this->inscrits( $cid );
+			foreach ( $inscrits as $i ) {
 				wp_delete_post( $i->ID, true );
 			}
 			wp_delete_post( $cid, true );
+			TCM_Log::add( 'delete', 'creneau', $cid, $titre, sprintf( '%d inscription(s) retirée(s)', count( $inscrits ) ) );
 		}
 		$this->back( 'deleted' );
 	}
@@ -201,6 +207,7 @@ class TCM_Planning {
 			update_field( 'creneau', $cre, $id );
 			update_field( 'statut', sanitize_text_field( wp_unslash( $_POST['statut'] ?? 'confirme' ) ), $id );
 			update_field( 'date_inscription', current_time( 'Ymd' ), $id );
+			TCM_Log::add( 'create', 'inscription', $adh, $this->person_name( $adh ), 'Inscrit à ' . $this->creneau_label( $cre ) );
 		}
 		$this->back( 'saved' );
 	}
@@ -209,7 +216,10 @@ class TCM_Planning {
 		$this->guard( 'tcm_inscription_delete' );
 		$iid = (int) ( $_POST['inscription_id'] ?? 0 );
 		if ( $iid && get_post_type( $iid ) === TCM_CPT_INSCRIPTION ) {
+			$adh = (int) get_field( 'adherent', $iid );
+			$cre = (int) get_field( 'creneau', $iid );
 			wp_delete_post( $iid, true );
+			TCM_Log::add( 'delete', 'inscription', $adh, $adh ? $this->person_name( $adh ) : '#' . $iid, 'Retiré de ' . ( $cre ? $this->creneau_label( $cre ) : 'un créneau' ) );
 		}
 		$this->back( 'deleted' );
 	}
@@ -230,8 +240,11 @@ class TCM_Planning {
 		$saison_courante = (string) apply_filters( 'tcm_saison_courante', get_option( 'tcm_saison_courante', gmdate( 'Y' ) ) );
 		$saison          = isset( $_GET['saison'] ) ? sanitize_text_field( wp_unslash( $_GET['saison'] ) ) : $saison_courante;
 
-		// Bascule d'affichage : par cours (défaut) ou par adhérent.
-		$vue    = ( isset( $_GET['vue'] ) && 'adherents' === $_GET['vue'] ) ? 'adherents' : 'creneaux';
+		// Bascule d'affichage : par cours (défaut), par adhérent ou agenda.
+		$vue    = isset( $_GET['vue'] ) ? sanitize_key( wp_unslash( $_GET['vue'] ) ) : 'creneaux';
+		if ( ! in_array( $vue, array( 'creneaux', 'adherents', 'agenda' ), true ) ) {
+			$vue = 'creneaux';
+		}
 		$statut = isset( $_GET['statut'] ) ? sanitize_text_field( wp_unslash( $_GET['statut'] ) ) : 'all';
 		if ( ! in_array( $statut, array( 'confirme', 'attente' ), true ) ) {
 			$statut = 'all';
@@ -239,6 +252,9 @@ class TCM_Planning {
 		$switch = $this->vue_switch( $page_url, $saison, $vue );
 		if ( 'adherents' === $vue ) {
 			return $switch . $this->render_par_adherent( $page_url, $saison, $statut );
+		}
+		if ( 'agenda' === $vue ) {
+			return $switch . $this->render_agenda( $page_url, $saison );
 		}
 
 		$meta = array();
@@ -345,7 +361,187 @@ class TCM_Planning {
 			$cls = 'tcm-vue-tab' . ( $v === $vue ? ' is-active' : '' );
 			return '<a class="' . $cls . '" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
 		};
-		return '<div class="tcm-vue-switch">' . $tab( 'creneaux', 'Par cours' ) . $tab( 'adherents', 'Par adhérent' ) . '</div>';
+		return '<div class="tcm-vue-switch">' . $tab( 'creneaux', 'Par cours' ) . $tab( 'agenda', 'Agenda' ) . $tab( 'adherents', 'Par adhérent' ) . '</div>';
+	}
+
+	/* =====================================================================
+	 * Vue « agenda » : grille horaire hebdomadaire (lundi → samedi)
+	 * =================================================================== */
+
+	/** "HH:MM" -> minutes depuis minuit, ou null si invalide. */
+	private function to_min( $val ): ?int {
+		$val = trim( (string) $val );
+		if ( ! preg_match( '/^(\d{1,2}):(\d{2})/', $val, $m ) ) {
+			return null;
+		}
+		return ( (int) $m[1] ) * 60 + (int) $m[2];
+	}
+
+	/**
+	 * Grille agenda : 6 colonnes (lundi → samedi), créneaux positionnés par
+	 * heure de début/fin, empilés côte à côte en cas de chevauchement.
+	 */
+	private function render_agenda( string $page_url, string $saison ): string {
+		$jours = array(
+			'lundi'    => 'Lundi',
+			'mardi'    => 'Mardi',
+			'mercredi' => 'Mercredi',
+			'jeudi'    => 'Jeudi',
+			'vendredi' => 'Vendredi',
+			'samedi'   => 'Samedi',
+		);
+
+		$meta = array();
+		if ( 'all' !== $saison && '' !== $saison ) {
+			$meta[] = array( 'key' => 'saison', 'value' => $saison, 'compare' => '=' );
+		}
+		$creneaux = get_posts( array(
+			'post_type'      => TCM_CPT_CRENEAU,
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'meta_query'     => $meta ?: array(),
+		) );
+
+		// Répartition par jour + calcul des bornes horaires globales.
+		$par_jour = array_fill_keys( array_keys( $jours ), array() );
+		$min_h    = null;
+		$max_h    = null;
+		foreach ( $creneaux as $c ) {
+			$j = (string) get_field( 'jour', $c->ID );
+			if ( ! isset( $par_jour[ $j ] ) ) {
+				continue; // dimanche (ou vide) : hors grille 6 colonnes.
+			}
+			$deb = $this->to_min( get_field( 'heure_debut', $c->ID ) );
+			$fin = $this->to_min( get_field( 'heure_fin', $c->ID ) );
+			if ( null === $deb ) {
+				continue;
+			}
+			if ( null === $fin || $fin <= $deb ) {
+				$fin = $deb + 60; // durée par défaut 1 h.
+			}
+			$par_jour[ $j ][] = array( 'c' => $c, 'deb' => $deb, 'fin' => $fin );
+			$min_h            = ( null === $min_h ) ? $deb : min( $min_h, $deb );
+			$max_h            = ( null === $max_h ) ? $fin : max( $max_h, $fin );
+		}
+
+		// Bornes de la grille, arrondies à l'heure, défaut 9 h → 21 h.
+		if ( null === $min_h ) {
+			$start_h = 9;
+			$end_h   = 21;
+		} else {
+			$start_h = (int) floor( $min_h / 60 );
+			$end_h   = (int) ceil( $max_h / 60 );
+			if ( $end_h <= $start_h ) {
+				$end_h = $start_h + 1;
+			}
+		}
+		$grid_start = $start_h * 60;
+		$grid_min   = ( $end_h - $start_h ) * 60;
+		$px_min     = 0.9;                        // 1 h = 54 px.
+		$grid_h     = (int) round( $grid_min * $px_min );
+
+		ob_start();
+		echo '<div class="tcm-agenda">';
+
+		// Sélecteur de saison.
+		echo '<form method="get" action="' . esc_url( $page_url ) . '" class="tcm-crm-bar">';
+		echo '<input type="hidden" name="vue" value="agenda">';
+		echo '<select name="saison" onchange="this.form.submit()">';
+		$saisons = get_terms( array( 'taxonomy' => TCM_Taxonomies::TAX_SAISON, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'DESC' ) );
+		if ( ! is_wp_error( $saisons ) ) {
+			foreach ( $saisons as $t ) {
+				echo '<option value="' . esc_attr( $t->name ) . '" ' . selected( $saison, $t->name, false ) . '>Saison ' . esc_html( $t->name ) . '</option>';
+			}
+		}
+		echo '<option value="all" ' . selected( $saison, 'all', false ) . '>Toutes les saisons</option>';
+		echo '</select></form>';
+
+		if ( null === $min_h ) {
+			echo '<p class="tcm-crm-empty">Aucun cours à afficher pour cette saison.</p></div>';
+			return (string) ob_get_clean();
+		}
+
+		echo '<div class="tcm-agenda-scroll"><div class="tcm-agenda-grid">';
+
+		// Colonne des heures.
+		echo '<div class="tcm-agenda-times">';
+		echo '<div class="tcm-agenda-colhead"></div>';
+		echo '<div class="tcm-agenda-gutter" style="height:' . $grid_h . 'px">';
+		for ( $h = $start_h; $h <= $end_h; $h++ ) {
+			$top = (int) round( ( $h * 60 - $grid_start ) * $px_min );
+			echo '<div class="tcm-agenda-hour" style="top:' . $top . 'px">' . sprintf( '%02dh', $h ) . '</div>';
+		}
+		echo '</div></div>';
+
+		// Colonnes des jours.
+		foreach ( $jours as $slug => $label ) {
+			echo '<div class="tcm-agenda-col">';
+			echo '<div class="tcm-agenda-colhead">' . esc_html( $label ) . '</div>';
+			echo '<div class="tcm-agenda-body" style="height:' . $grid_h . 'px">';
+
+			// Lignes horaires.
+			for ( $h = $start_h; $h <= $end_h; $h++ ) {
+				$top = (int) round( ( $h * 60 - $grid_start ) * $px_min );
+				echo '<div class="tcm-agenda-line" style="top:' . $top . 'px"></div>';
+			}
+
+			// Empilement côte à côte (lane packing) des créneaux qui se chevauchent.
+			$events = $par_jour[ $slug ];
+			usort( $events, static function ( $a, $b ) {
+				return $a['deb'] <=> $b['deb'] ?: $a['fin'] <=> $b['fin'];
+			} );
+			$lanes = array(); // index de lane => minute de fin du dernier event.
+			foreach ( $events as &$ev ) {
+				$placed = false;
+				foreach ( $lanes as $li => $end_min ) {
+					if ( $ev['deb'] >= $end_min ) {
+						$ev['lane']   = $li;
+						$lanes[ $li ] = $ev['fin'];
+						$placed       = true;
+						break;
+					}
+				}
+				if ( ! $placed ) {
+					$ev['lane'] = count( $lanes );
+					$lanes[]    = $ev['fin'];
+				}
+			}
+			unset( $ev );
+			$n_lanes = max( 1, count( $lanes ) );
+
+			foreach ( $events as $ev ) {
+				$c      = $ev['c'];
+				$top    = (int) round( ( $ev['deb'] - $grid_start ) * $px_min );
+				$height = max( 24, (int) round( ( $ev['fin'] - $ev['deb'] ) * $px_min ) - 2 );
+				$w      = 100 / $n_lanes;
+				$left   = $ev['lane'] * $w;
+				$cap    = (int) get_field( 'capacite', $c->ID );
+				$nb     = count( $this->inscrits( $c->ID ) );
+				$ratio  = $cap > 0 ? $nb / $cap : 0;
+				$fill   = $ratio >= 1 ? 'tcm-fill-full' : ( $ratio >= 0.8 ? 'tcm-fill-warn' : 'tcm-fill-ok' );
+				$type   = (string) get_field( 'type_cours', $c->ID );
+				$anim   = (string) get_field( 'entraineur', $c->ID );
+				$href   = esc_url( add_query_arg( array( 'vue' => 'creneaux', 'creneau' => $c->ID, 'saison' => $saison ), $page_url ) );
+
+				$style = 'top:' . $top . 'px;height:' . $height . 'px;left:calc(' . $left . '% + 2px);width:calc(' . $w . '% - 4px);';
+				echo '<a class="tcm-agenda-event ' . $fill . '" style="' . $style . '" href="' . $href . '" title="' . esc_attr( get_the_title( $c->ID ) ) . '">';
+				echo '<span class="tcm-agenda-ev-time">' . esc_html( get_field( 'heure_debut', $c->ID ) . '–' . get_field( 'heure_fin', $c->ID ) ) . '</span>';
+				if ( '' !== $type ) {
+					echo '<span class="tcm-agenda-ev-title">' . esc_html( $type ) . '</span>';
+				}
+				if ( '' !== $anim ) {
+					echo '<span class="tcm-agenda-ev-meta">' . esc_html( $anim ) . '</span>';
+				}
+				echo '<span class="tcm-agenda-ev-cap">' . (int) $nb . '/' . (int) $cap . '</span>';
+				echo '</a>';
+			}
+
+			echo '</div></div>';
+		}
+
+		echo '</div></div>'; // .tcm-agenda-grid / .tcm-agenda-scroll
+		echo '</div>';       // .tcm-agenda
+		return (string) ob_get_clean();
 	}
 
 	/**
