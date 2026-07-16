@@ -81,6 +81,27 @@ class TCM_Planning {
 		return $pid ? trim( (string) get_field( 'nom', $pid ) . ' ' . (string) get_field( 'prenom', $pid ) ) : '—';
 	}
 
+	/** Âge (en années révolues) de la personne rattachée à un adhérent, ou null. */
+	private function person_age( int $adherent_id ): ?int {
+		$pid = (int) get_field( 'personne', $adherent_id );
+		if ( ! $pid ) {
+			return null;
+		}
+		$ymd = preg_replace( '/\D/', '', (string) get_field( 'date_naissance', $pid ) );
+		if ( 8 !== strlen( (string) $ymd ) ) {
+			return null;
+		}
+		$naissance = DateTime::createFromFormat( 'Ymd', $ymd );
+		return $naissance ? (int) $naissance->diff( new DateTime( 'today' ) )->y : null;
+	}
+
+	/** Nom suivi de l'âge : « NOM Prénom (12 ans) », sans l'âge s'il est inconnu. */
+	private function person_name_age( int $adherent_id ): string {
+		$name = $this->person_name( $adherent_id );
+		$age  = $this->person_age( $adherent_id );
+		return null !== $age ? $name . ' (' . $age . ' ans)' : $name;
+	}
+
 	/** Adhérents d'une saison (id => nom), triés, hors ceux déjà inscrits au créneau donné. */
 	private function adherents_for_saison( string $saison, int $exclude_creneau = 0 ): array {
 		$ids = get_posts( array(
@@ -95,7 +116,7 @@ class TCM_Planning {
 			if ( $exclude_creneau && $this->inscription_exists( $aid, $exclude_creneau ) ) {
 				continue;
 			}
-			$out[ $aid ] = $this->person_name( $aid );
+			$out[ $aid ] = $this->person_name_age( $aid );
 		}
 		asort( $out, SORT_NATURAL | SORT_FLAG_CASE );
 		return $out;
@@ -570,7 +591,7 @@ class TCM_Planning {
 			$aid    = (int) get_field( 'adherent', $i->ID );
 			$rows[] = array(
 				'aid'     => $aid,
-				'nom'     => $this->person_name( $aid ),
+				'nom'     => $this->person_name_age( $aid ),
 				'creneau' => $this->creneau_label( (int) get_field( 'creneau', $i->ID ) ),
 				'statut'  => $st,
 			);
@@ -645,7 +666,7 @@ class TCM_Planning {
 			$st   = (string) get_field( 'statut', $i->ID );
 			$fic  = esc_url( add_query_arg( array( 'id' => $aid, 'tab' => 'inscriptions' ), $this->back_office_url() ) );
 			echo '<div class="tcm-row"><div class="tcm-row-main">';
-			echo '<a class="tcm-row-libelle tcm-link" href="' . $fic . '">' . esc_html( $this->person_name( $aid ) ) . '</a>';
+			echo '<a class="tcm-row-libelle tcm-link" href="' . $fic . '">' . esc_html( $this->person_name_age( $aid ) ) . '</a>';
 			echo '<span class="tcm-chip tcm-chip-' . esc_attr( $st ) . '">' . esc_html( 'confirme' === $st ? 'Confirmé' : 'Liste d’attente' ) . '</span>';
 			echo '</div><div class="tcm-row-actions">';
 			echo $this->post_button( 'tcm_inscription_delete', 'inscription_id', $i->ID, (string) $this_url, 'Désinscrire cet adhérent ?', 'Retirer', 'tcm-danger' );
