@@ -114,6 +114,9 @@ class TCM_Shell {
 		// Pied de barre : Récapitulatif + compte (remplace la barre admin WP).
 		echo '<div class="tcm-sidebar-footer">';
 		echo $this->nav_item( 'Récapitulatif', 'recap', $current );
+		// Lien direct vers l'accueil public du site.
+		echo '<a class="tcm-nav-item" href="' . esc_url( home_url( '/' ) ) . '">'
+			. '<span class="tcm-nav-ico"></span><span class="tcm-nav-label">Accueil du site</span></a>';
 		echo '<div class="tcm-user">';
 		echo '<span class="tcm-user-name">' . esc_html( $user->display_name ) . '</span>';
 		echo '<a class="tcm-user-link" href="' . esc_url( admin_url() ) . '">Administration</a>';

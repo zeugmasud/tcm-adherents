@@ -17,6 +17,7 @@ class TCM_Crud {
 
 	public function hooks(): void {
 		add_action( 'admin_post_tcm_reg_save', array( $this, 'reg_save' ) );
+		add_action( 'admin_post_tcm_reg_scan', array( $this, 'reg_scan' ) );
 		add_action( 'admin_post_tcm_reg_delete', array( $this, 'reg_delete' ) );
 		add_action( 'admin_post_tcm_cmd_save', array( $this, 'cmd_save' ) );
 		add_action( 'admin_post_tcm_cmd_delete', array( $this, 'cmd_delete' ) );
@@ -73,9 +74,26 @@ class TCM_Crud {
 		}
 		update_field( 'statut', sanitize_text_field( wp_unslash( $_POST['statut'] ?? 'valide' ) ), $id );
 
+		// Photo du chèque (stockage protégé) : retrait demandé, puis éventuel nouvel envoi.
+		if ( ! empty( $_POST['reg_photo_remove'] ) ) {
+			TCM_Cheque::delete( $id );
+		}
+		TCM_Cheque::store_from_upload( $id, 'reg_photo' );
+
 		$canal_lbl = $this->canaux()[ $canal ] ?? $canal;
 		TCM_Log::add( $is_new ? 'create' : 'update', 'reglement', $adh, TCM_Log::person_label( $adh ), number_format( (float) $montant, 2, ',', ' ' ) . ' € · ' . $canal_lbl );
 
+		$this->back( 'reglements', 'saved' );
+	}
+
+	/** Ajout rapide d'une photo de chèque depuis le bouton « Scan » de la ligne. */
+	public function reg_scan(): void {
+		$this->guard( 'tcm_reg_scan' );
+		$rid = (int) ( $_POST['reg_id'] ?? 0 );
+		if ( $rid && get_post_type( $rid ) === TCM_CPT_REGLEMENT && TCM_Cheque::store_from_upload( $rid, 'reg_photo' ) ) {
+			$adh = (int) get_field( 'adherent', $rid );
+			TCM_Log::add( 'update', 'reglement', $adh, $adh ? TCM_Log::person_label( $adh ) : '#' . $rid, 'Scan du chèque ajouté' );
+		}
 		$this->back( 'reglements', 'saved' );
 	}
 
@@ -182,6 +200,7 @@ class TCM_Crud {
 					'canal'   => get_field( 'canal', $r->ID ),
 					'montant' => $m,
 					'statut'  => get_field( 'statut', $r->ID ),
+					'photo'   => (int) get_field( 'photo_cheque', $r->ID ),
 				), 'Enregistrer' );
 				echo '</div>';
 			} else {
@@ -195,8 +214,14 @@ class TCM_Crud {
 				echo '<span class="tcm-row-canal">' . esc_html( $canal ) . '</span>';
 				echo '<span class="tcm-row-montant">' . esc_html( number_format( $m, 2, ',', ' ' ) ) . ' €</span>';
 				echo '<span class="tcm-chip tcm-chip-' . esc_attr( $statut_k ) . '">' . esc_html( $statut ) . '</span>';
+				if ( TCM_Cheque::has( $r->ID ) ) {
+					$photo_url = TCM_Cheque::view_url( $r->ID );
+					echo '<a class="tcm-reg-photo" href="' . esc_url( $photo_url ) . '" target="_blank" rel="noopener" title="Voir la photo du chèque">';
+					echo '<img src="' . esc_url( $photo_url ) . '" alt="Chèque"></a>';
+				}
 				echo '</div>';
 				echo '<div class="tcm-row-actions"><a class="button button-small" href="' . $edit . '">Éditer</a>'
+					. $this->scan_form( $r->ID, $adh, $fiche_url )
 					. $this->delete_form( 'tcm_reg_delete', 'reg_id', $r->ID, $adh, $fiche_url, 'Supprimer ce règlement ?' ) . '</div>';
 				echo '</div>';
 			}
@@ -217,8 +242,9 @@ class TCM_Crud {
 	}
 
 	private function reg_form( int $adh, string $redirect, int $reg_id, array $v, string $label ): string {
+		$v = wp_parse_args( $v, array( 'date' => '', 'canal' => 'cheque', 'montant' => '', 'statut' => 'valide', 'photo' => 0 ) );
 		ob_start();
-		echo '<form class="tcm-inline-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<form class="tcm-inline-form" method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'tcm_reg_save' );
 		echo '<input type="hidden" name="action" value="tcm_reg_save">';
 		echo '<input type="hidden" name="adherent" value="' . (int) $adh . '">';
@@ -236,6 +262,16 @@ class TCM_Crud {
 			echo '<option value="' . esc_attr( $k ) . '" ' . selected( $v['statut'], $k, false ) . '>' . esc_html( $lab ) . '</option>';
 		}
 		echo '</select></label>';
+
+		// Photo du chèque (capture caméra sur mobile) — stockage protégé.
+		echo '<label class="tcm-col-2">Photo du chèque';
+		if ( $reg_id && TCM_Cheque::has( $reg_id ) ) {
+			$url = TCM_Cheque::view_url( $reg_id );
+			echo '<span class="tcm-reg-photo-cur"><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener"><img src="' . esc_url( $url ) . '" alt="Chèque"></a>';
+			echo ' <label class="tcm-reg-photo-del"><input type="checkbox" name="reg_photo_remove" value="1"> Retirer</label></span>';
+		}
+		echo '<input type="file" name="reg_photo" accept="image/*" capture="environment"></label>';
+
 		echo '<div class="tcm-inline-actions"><button type="submit" class="button button-primary button-small">' . esc_html( $label ) . '</button>';
 		if ( $reg_id ) {
 			echo ' <a class="button button-small" href="' . esc_url( add_query_arg( 'tab', 'reglements', $redirect ) ) . '">Annuler</a>';
@@ -340,6 +376,23 @@ class TCM_Crud {
 	/* ---------------------------------------------------------------------
 	 * Bouton de suppression (mini-formulaire POST)
 	 * ------------------------------------------------------------------- */
+
+	/** Bouton « Scan » : ouvre l'appareil photo (mobile) et envoie la photo au règlement en un tap. */
+	private function scan_form( int $reg_id, int $adh, string $redirect ): string {
+		$has   = TCM_Cheque::has( $reg_id );
+		$label = $has ? 'Re-scan' : 'Scan';
+		ob_start();
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" enctype="multipart/form-data" class="tcm-scan-form">';
+		wp_nonce_field( 'tcm_reg_scan' );
+		echo '<input type="hidden" name="action" value="tcm_reg_scan">';
+		echo '<input type="hidden" name="reg_id" value="' . (int) $reg_id . '">';
+		echo '<input type="hidden" name="adherent" value="' . (int) $adh . '">';
+		echo '<input type="hidden" name="redirect" value="' . esc_url( $redirect ) . '">';
+		echo '<label class="button button-small tcm-scan-btn" title="Prendre le chèque en photo">' . esc_html( $label );
+		echo '<input type="file" name="reg_photo" accept="image/*" capture="environment" onchange="this.form.submit()" hidden></label>';
+		echo '</form>';
+		return (string) ob_get_clean();
+	}
 
 	private function delete_form( string $action, string $idname, int $post_id, int $adh, string $redirect, string $confirm ): string {
 		ob_start();

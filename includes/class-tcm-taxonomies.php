@@ -46,6 +46,46 @@ class TCM_Taxonomies {
 	public function hooks(): void {
 		add_action( 'init', array( $this, 'register' ) );
 		add_action( 'admin_post_tcm_reindex_tax', array( $this, 'handle_reindex' ) );
+		// Filtre « Saison » sur la liste admin des adhérents.
+		add_action( 'restrict_manage_posts', array( $this, 'admin_season_filter' ) );
+		add_action( 'pre_get_posts', array( $this, 'admin_season_filter_query' ) );
+	}
+
+	/** Menu déroulant « Saison » au-dessus de la liste admin des adhérents. */
+	public function admin_season_filter( string $post_type ): void {
+		if ( TCM_CPT_ADHERENT !== $post_type ) {
+			return;
+		}
+		$terms = get_terms( array( 'taxonomy' => self::TAX_SAISON, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'DESC' ) );
+		if ( is_wp_error( $terms ) || ! $terms ) {
+			return;
+		}
+		$current = isset( $_GET[ self::TAX_SAISON ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::TAX_SAISON ] ) ) : '';
+		echo '<select name="' . esc_attr( self::TAX_SAISON ) . '">';
+		echo '<option value="">' . esc_html__( 'Toutes les saisons', 'tcm-adherents' ) . '</option>';
+		foreach ( $terms as $t ) {
+			echo '<option value="' . esc_attr( $t->slug ) . '" ' . selected( $current, $t->slug, false ) . '>'
+				. esc_html( 'Saison ' . $t->name ) . '</option>';
+		}
+		echo '</select>';
+	}
+
+	/** Applique le filtre saison à la requête principale de la liste admin. */
+	public function admin_season_filter_query( WP_Query $q ): void {
+		if ( ! is_admin() || ! $q->is_main_query() ) {
+			return;
+		}
+		global $pagenow;
+		if ( 'edit.php' !== $pagenow || TCM_CPT_ADHERENT !== $q->get( 'post_type' ) ) {
+			return;
+		}
+		$slug = isset( $_GET[ self::TAX_SAISON ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::TAX_SAISON ] ) ) : '';
+		if ( '' === $slug ) {
+			return;
+		}
+		$tax_query   = (array) $q->get( 'tax_query' );
+		$tax_query[] = array( 'taxonomy' => self::TAX_SAISON, 'field' => 'slug', 'terms' => $slug );
+		$q->set( 'tax_query', $tax_query );
 	}
 
 	public function register(): void {

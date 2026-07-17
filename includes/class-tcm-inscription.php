@@ -195,6 +195,22 @@ class TCM_Inscription {
 		var el = f.querySelector('[name="'+name+'"]:checked');
 		return el ? el.value : '';
 	}
+	// Rend obligatoires (ou non) les coordonnées ; le « required » doit être
+	// dynamique car un champ requis masqué bloque l'envoi de façon invisible.
+	function setCoordsRequired(on){
+		['email','telephone','adresse','cp','ville'].forEach(function(n){
+			var el = f.querySelector('[name="'+n+'"]');
+			if(!el){ return; }
+			el.required = on;
+			var wrap = el.closest('.tcm-insc-field');
+			var lab  = wrap ? wrap.querySelector('label') : null;
+			if(lab){
+				var star = lab.querySelector('.tcm-req');
+				if(on && !star){ star = document.createElement('span'); star.className = 'tcm-req'; star.textContent = ' *'; lab.appendChild(star); }
+				else if(!on && star){ star.remove(); }
+			}
+		});
+	}
 	function toggleMineur(){
 		var a = ageFrom(dob && dob.value);
 		if(mineur){ mineur.hidden = !(a!==null && a<18); }
@@ -206,6 +222,7 @@ class TCM_Inscription {
 		// Coordonnées : nouvelle inscription, ou renouvellement avec changement déclaré.
 		var show = (deja === 'non') || (deja === 'oui' && val('changement') === 'oui');
 		if(coords){ coords.hidden = !show; }
+		setCoordsRequired(show);
 	}
 	if(dob){ dob.addEventListener('change', toggleMineur); dob.addEventListener('input', toggleMineur); }
 	f.querySelectorAll('[name="deja_adherent"]').forEach(function(r){ r.addEventListener('change', apply); });
@@ -350,12 +367,12 @@ class TCM_Inscription {
 		if ( '' === $nom || '' === $prenom || 8 !== strlen( $dob ) ) {
 			$this->back( $redirect, 'err', 'champs' );
 		}
-		if ( $coords_attendues && ( '' === $email || '' === $tel ) ) {
-			$this->back( $redirect, 'err', 'champs' );
-		}
-		// Adresse obligatoire (option) quand le bloc coordonnées est demandé.
-		if ( $coords_attendues && $s['require_address'] && (
-			'' === sanitize_text_field( wp_unslash( $_POST['adresse'] ?? '' ) )
+		// Nouvelle inscription ou changement de coordonnées : e-mail, téléphone,
+		// adresse, code postal et ville sont tous obligatoires.
+		if ( $coords_attendues && (
+			'' === $email
+			|| '' === $tel
+			|| '' === sanitize_text_field( wp_unslash( $_POST['adresse'] ?? '' ) )
 			|| '' === sanitize_text_field( wp_unslash( $_POST['cp'] ?? '' ) )
 			|| '' === sanitize_text_field( wp_unslash( $_POST['ville'] ?? '' ) ) ) ) {
 			$this->back( $redirect, 'err', 'champs' );
@@ -495,8 +512,9 @@ class TCM_Inscription {
 			);
 		}
 
-		// 2. Notification au bureau.
-		if ( ! empty( $s['mail_notify_on'] ) && is_email( $s['mail_notify_to'] ) ) {
+		// 2. Notification au bureau (une ou plusieurs adresses, séparées par des virgules).
+		$notify_to = $this->parse_emails( (string) $s['mail_notify_to'] );
+		if ( ! empty( $s['mail_notify_on'] ) && $notify_to ) {
 			$d      = preg_replace( '/\D/', '', (string) $ctx['dob'] );
 			$dob_fr = 8 === strlen( $d ) ? substr( $d, 6, 2 ) . '/' . substr( $d, 4, 2 ) . '/' . substr( $d, 0, 4 ) : (string) $ctx['dob'];
 			$lines  = array(
@@ -514,8 +532,20 @@ class TCM_Inscription {
 			if ( is_email( $to_applicant ) ) {
 				$nheaders[] = 'Reply-To: ' . $to_applicant;
 			}
-			wp_mail( $s['mail_notify_to'], strtr( (string) $s['mail_notify_subject'], $vars ), implode( "\n", $lines ), $nheaders );
+			wp_mail( $notify_to, strtr( (string) $s['mail_notify_subject'], $vars ), implode( "\n", $lines ), $nheaders );
 		}
+	}
+
+	/** Découpe une liste d'e-mails séparés par des virgules et ne garde que les valides. */
+	private function parse_emails( string $raw ): array {
+		$out = array();
+		foreach ( preg_split( '/[,;]+/', $raw ) as $mail ) {
+			$mail = sanitize_email( trim( $mail ) );
+			if ( is_email( $mail ) ) {
+				$out[] = $mail;
+			}
+		}
+		return array_values( array_unique( $out ) );
 	}
 
 	private function is_minor( string $ymd ): bool {
@@ -626,7 +656,8 @@ class TCM_Inscription {
 
 		echo '<tr><th>Notification (bureau)</th><td>'
 			. '<label><input type="checkbox" name="mail_notify_on" value="1" ' . checked( $s['mail_notify_on'], 1, false ) . '> Prévenir le bureau à chaque nouvelle inscription</label>'
-			. '<p style="margin:12px 0 4px;"><strong>Destinataire</strong></p><input type="email" name="mail_notify_to" value="' . esc_attr( $s['mail_notify_to'] ) . '" class="regular-text">'
+			. '<p style="margin:12px 0 4px;"><strong>Destinataire(s)</strong></p><input type="text" name="mail_notify_to" value="' . esc_attr( $s['mail_notify_to'] ) . '" class="large-text" placeholder="contact@tcmimet.fr, membre2@exemple.fr">'
+			. '<p class="description">Une ou plusieurs adresses, séparées par des virgules. Chacune recevra la notification.</p>'
 			. '<p style="margin:12px 0 4px;"><strong>Objet</strong></p><input type="text" name="mail_notify_subject" value="' . esc_attr( $s['mail_notify_subject'] ) . '" class="large-text">'
 			. '<p class="description">Le corps liste automatiquement les infos de la demande. Variables d’objet : <code>{prenom}</code>, <code>{nom}</code>, <code>{saison}</code>.</p></td></tr>';
 
@@ -658,7 +689,7 @@ class TCM_Inscription {
 			'mail_ack_subject'    => sanitize_text_field( wp_unslash( $_POST['mail_ack_subject'] ?? '' ) ),
 			'mail_ack_body'       => sanitize_textarea_field( wp_unslash( $_POST['mail_ack_body'] ?? '' ) ),
 			'mail_notify_on'      => empty( $_POST['mail_notify_on'] ) ? 0 : 1,
-			'mail_notify_to'      => sanitize_email( wp_unslash( $_POST['mail_notify_to'] ?? '' ) ),
+			'mail_notify_to'      => implode( ', ', $this->parse_emails( wp_unslash( $_POST['mail_notify_to'] ?? '' ) ) ),
 			'mail_notify_subject' => sanitize_text_field( wp_unslash( $_POST['mail_notify_subject'] ?? '' ) ),
 		) );
 		wp_safe_redirect( admin_url( 'admin.php?page=tcm-form-adhesion&msg=saved' ) );

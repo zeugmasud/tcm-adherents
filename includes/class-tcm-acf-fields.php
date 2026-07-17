@@ -123,6 +123,9 @@ class TCM_ACF_Fields {
 					'instructions' => 'Rempli automatiquement pour les paiements CB.' ),
 				array( 'key' => 'field_tcm_reg_statut', 'label' => 'Statut', 'name' => 'statut', 'type' => 'select',
 					'choices' => array( 'valide' => 'Validé', 'en_attente' => 'En attente', 'rembourse' => 'Remboursé' ), 'default_value' => 'valide' ),
+				// La photo du chèque n'est PAS un champ ACF/média public : elle est
+				// stockée hors médiathèque et servie aux seuls membres connectés
+				// (voir TCM_Cheque). Méta technique : _tcm_cheque_file / _tcm_cheque_mime.
 			),
 		) );
 	}
