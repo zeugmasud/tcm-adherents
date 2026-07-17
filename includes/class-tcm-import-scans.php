@@ -21,6 +21,7 @@ class TCM_Import_Scans {
 	public function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'menu' ), 11 );
 		add_action( 'admin_post_tcm_import_scans', array( $this, 'handle' ) );
+		add_action( 'admin_post_tcm_import_comments', array( $this, 'handle_comments' ) );
 	}
 
 	public function menu(): void {
@@ -36,6 +37,10 @@ class TCM_Import_Scans {
 
 	private function map_path(): string {
 		return TCM_PATH . 'data/scans-map.json';
+	}
+
+	private function comments_path(): string {
+		return TCM_PATH . 'data/comments-map.json';
 	}
 
 	/* =====================================================================
@@ -78,6 +83,31 @@ class TCM_Import_Scans {
 		echo '<p><input type="file" name="scans_zip" accept=".zip"></p>';
 		submit_button( __( 'Importer les scans', 'tcm-adherents' ) );
 		echo '</form>';
+
+		// --- Import des commentaires -------------------------------------
+		$creport = get_transient( 'tcm_comments_report' );
+		delete_transient( 'tcm_comments_report' );
+		$cmap = json_decode( (string) ( is_readable( $this->comments_path() ) ? file_get_contents( $this->comments_path() ) : '[]' ), true ); // phpcs:ignore
+		$cmap = is_array( $cmap ) ? $cmap : array();
+
+		echo '<hr><h2>' . esc_html__( 'Import des commentaires', 'tcm-adherents' ) . '</h2>';
+		if ( is_array( $creport ) ) {
+			echo '<div class="notice notice-success"><p><strong>Import terminé.</strong> '
+				. esc_html( sprintf(
+					'%d commentaire(s) importé(s), %d déjà présent(s), %d règlement introuvable, %d personne/adhérent introuvable.',
+					$creport['ok'], $creport['already'], count( $creport['no_reglement'] ), $creport['no_target']
+				) ) . '</p></div>';
+			if ( ! empty( $creport['no_reglement'] ) ) {
+				echo '<p><strong>Règlement introuvable</strong> : <code>' . esc_html( implode( ', ', array_slice( $creport['no_reglement'], 0, 60 ) ) ) . '</code></p>';
+			}
+		}
+		echo '<p><strong>' . esc_html( (string) count( $cmap ) ) . '</strong> commentaires référencés. (Aucun fichier à envoyer.)</p>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" onsubmit="return confirm(\'Importer les commentaires ?\');">';
+		wp_nonce_field( 'tcm_import_comments' );
+		echo '<input type="hidden" name="action" value="tcm_import_comments">';
+		submit_button( __( 'Importer les commentaires', 'tcm-adherents' ), 'secondary' );
+		echo '</form>';
+
 		echo '</div>';
 	}
 
@@ -213,6 +243,82 @@ class TCM_Import_Scans {
 		}
 
 		set_transient( 'tcm_scans_report', $rep, 300 );
+		wp_safe_redirect( admin_url( 'admin.php?page=tcm-import-scans' ) );
+		exit;
+	}
+
+	/** Importe les commentaires (montant + date) sur les règlements. */
+	public function handle_comments(): void {
+		if ( ! current_user_can( 'tcm_manage' ) || ! check_admin_referer( 'tcm_import_comments' ) ) {
+			wp_die( 'Accès refusé.' );
+		}
+		@set_time_limit( 0 ); // phpcs:ignore
+
+		$map = json_decode( (string) ( is_readable( $this->comments_path() ) ? file_get_contents( $this->comments_path() ) : '[]' ), true ); // phpcs:ignore
+		$map = is_array( $map ) ? $map : array();
+		$rep = array( 'ok' => 0, 'already' => 0, 'no_reglement' => array(), 'no_target' => 0 );
+
+		foreach ( $map as $m ) {
+			$person = TCM_Dedup::find_by_key( (string) $m['cle'] );
+			if ( ! $person ) {
+				$rep['no_target']++;
+				continue;
+			}
+			$aids = get_posts( array(
+				'post_type'      => TCM_CPT_ADHERENT,
+				'posts_per_page' => -1,
+				'post_status'    => 'any',
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+				'meta_query'     => array(
+					'relation' => 'AND',
+					array( 'key' => 'personne', 'value' => $person ),
+					array( 'key' => 'saison', 'value' => (string) $m['saison'] ),
+				),
+			) );
+			if ( ! $aids ) {
+				$rep['no_target']++;
+				continue;
+			}
+			$regs    = get_posts( array(
+				'post_type'      => TCM_CPT_REGLEMENT,
+				'posts_per_page' => -1,
+				'post_status'    => 'any',
+				'no_found_rows'  => true,
+				'meta_query'     => array( array( 'key' => 'adherent', 'value' => $aids, 'compare' => 'IN' ) ),
+			) );
+			$matches = array();
+			foreach ( $regs as $r ) {
+				$mont = round( (float) get_field( 'montant', $r->ID ), 2 );
+				$dr   = preg_replace( '/\D/', '', (string) get_field( 'date_reglement', $r->ID ) );
+				if ( abs( $mont - round( (float) $m['montant'], 2 ) ) < 0.01 && $dr === (string) $m['date'] ) {
+					$matches[] = (int) $r->ID;
+				}
+			}
+			if ( ! $matches ) {
+				$rep['no_reglement'][] = $m['cle'] . ' ' . $m['montant'] . '€';
+				continue;
+			}
+
+			// Règlement correspondant encore sans commentaire (répartit les chèques différés).
+			$target = 0;
+			foreach ( $matches as $rid ) {
+				if ( '' === trim( (string) get_field( 'commentaire', $rid ) ) ) {
+					$target = $rid;
+					break;
+				}
+			}
+			if ( ! $target ) {
+				$rep['already']++;
+				continue;
+			}
+			update_field( 'commentaire', (string) $m['commentaire'], $target );
+			$rep['ok']++;
+			$adh = (int) get_field( 'adherent', $target );
+			TCM_Log::add( 'update', 'reglement', $adh, $adh ? TCM_Log::person_label( $adh ) : '#' . $target, 'Commentaire importé : ' . $m['commentaire'] );
+		}
+
+		set_transient( 'tcm_comments_report', $rep, 300 );
 		wp_safe_redirect( admin_url( 'admin.php?page=tcm-import-scans' ) );
 		exit;
 	}

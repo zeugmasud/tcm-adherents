@@ -73,6 +73,7 @@ class TCM_Crud {
 			update_field( 'date_reglement', $ymd, $id );
 		}
 		update_field( 'statut', sanitize_text_field( wp_unslash( $_POST['statut'] ?? 'valide' ) ), $id );
+		update_field( 'commentaire', sanitize_textarea_field( wp_unslash( $_POST['commentaire'] ?? '' ) ), $id );
 
 		// Photo du chèque (stockage protégé) : retrait demandé, puis éventuel nouvel envoi.
 		if ( ! empty( $_POST['reg_photo_remove'] ) ) {
@@ -198,9 +199,9 @@ class TCM_Crud {
 				echo $this->reg_form( $adh, $fiche_url, $r->ID, array(
 					'date'    => get_field( 'date_reglement', $r->ID ),
 					'canal'   => get_field( 'canal', $r->ID ),
-					'montant' => $m,
-					'statut'  => get_field( 'statut', $r->ID ),
-					'photo'   => (int) get_field( 'photo_cheque', $r->ID ),
+					'montant'     => $m,
+					'statut'      => get_field( 'statut', $r->ID ),
+					'commentaire' => get_field( 'commentaire', $r->ID ),
 				), 'Enregistrer' );
 				echo '</div>';
 			} else {
@@ -218,6 +219,10 @@ class TCM_Crud {
 					$photo_url = TCM_Cheque::view_url( $r->ID );
 					echo '<a class="tcm-reg-photo" href="' . esc_url( $photo_url ) . '" target="_blank" rel="noopener" title="Voir la photo du chèque">';
 					echo '<img src="' . esc_url( $photo_url ) . '" alt="Chèque"></a>';
+				}
+				$comment = (string) get_field( 'commentaire', $r->ID );
+				if ( '' !== trim( $comment ) ) {
+					echo '<span class="tcm-row-comment" title="' . esc_attr( $comment ) . '">' . esc_html( $comment ) . '</span>';
 				}
 				echo '</div>';
 				echo '<div class="tcm-row-actions"><a class="button button-small" href="' . $edit . '">Éditer</a>'
@@ -242,7 +247,7 @@ class TCM_Crud {
 	}
 
 	private function reg_form( int $adh, string $redirect, int $reg_id, array $v, string $label ): string {
-		$v = wp_parse_args( $v, array( 'date' => '', 'canal' => 'cheque', 'montant' => '', 'statut' => 'valide', 'photo' => 0 ) );
+		$v = wp_parse_args( $v, array( 'date' => '', 'canal' => 'cheque', 'montant' => '', 'statut' => 'valide', 'commentaire' => '', 'photo' => 0 ) );
 		ob_start();
 		echo '<form class="tcm-inline-form" method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'tcm_reg_save' );
@@ -262,6 +267,8 @@ class TCM_Crud {
 			echo '<option value="' . esc_attr( $k ) . '" ' . selected( $v['statut'], $k, false ) . '>' . esc_html( $lab ) . '</option>';
 		}
 		echo '</select></label>';
+
+		echo '<label class="tcm-col-2">Commentaire<textarea name="commentaire" rows="2">' . esc_textarea( (string) $v['commentaire'] ) . '</textarea></label>';
 
 		// Photo du chèque (capture caméra sur mobile) — stockage protégé.
 		echo '<label class="tcm-col-2">Photo du chèque';

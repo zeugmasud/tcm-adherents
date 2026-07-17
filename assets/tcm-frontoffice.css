@@ -487,6 +487,7 @@ button.tcm-badge-toggle.tcm-badge-warn { background: #fbd7e6; color: #b02a67; }
 .tcm-reg-photo-del { font-size: 12px; color: var(--tcm-muted); font-weight: 400; }
 .tcm-scan-form { display: inline-block; margin: 0; }
 label.tcm-scan-btn { cursor: pointer; }
+.tcm-row-comment { font-style: italic; color: var(--tcm-muted); font-size: 13px; margin-left: 4px; }
 /* ---- Vue agenda (grille horaire hebdo, 6 colonnes) ---- */
 .tcm-agenda { margin-top: 4px; }
 .tcm-agenda-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
